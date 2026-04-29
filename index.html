@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0046)file:///C:/Users/gregb/Downloads/index_43.html -->
+<!-- saved from url=(0046)file:///C:/Users/gregb/Downloads/index_44.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -676,16 +676,12 @@ async function doAuth(){
   if(btn){btn.disabled=true;btn.textContent='Please wait…'}
   if(errEl)errEl.innerHTML=''
 
-  // Always re-initialise SB before trying
+  // Create a fresh SB client every time - guaranteed to work
   try{
-    if(!window.supabase){
-      if(errEl)errEl.innerHTML='<div class="auth-err">Page not fully loaded. Please refresh.</div>'
-      if(btn){btn.disabled=false;btn.textContent='Sign in'}
-      return
-    }
-    if(!SB) SB=window.supabase.createClient(SB_URL,SB_KEY)
+    const client=window.supabase.createClient('https://mzesgwgmemscbemycnmm.supabase.co','sb_publishable_y2kC-r9P31U9ROvsR-Zoeg_uS7Pc2G-')
+    SB=client
   }catch(e){
-    if(errEl)errEl.innerHTML='<div class="auth-err">Setup error: '+e.message+'</div>'
+    if(errEl)errEl.innerHTML='<div class="auth-err">Could not connect. Please refresh the page and try again.</div>'
     if(btn){btn.disabled=false;btn.textContent='Sign in'}
     return
   }
