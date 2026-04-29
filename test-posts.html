@@ -37,8 +37,8 @@
 })()
 </script>
 <script>
-const URL='https://mzesgwgmemscbemycnmm.supabase.co'
-const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZXNnd2dtZW1zY2JlbXljbm1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mjg0NzUsImV4cCI6MjA5MjAwNDQ3NX0.emDg7vffqCsHoRkr3W5yP-fVPapGrTrNVhuHaBCFr24'
+const SB_URL2='https://mzesgwgmemscbemycnmm.supabase.co'
+const SB_KEY2='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZXNnd2dtZW1zY2JlbXljbm1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mjg0NzUsImV4cCI6MjA5MjAwNDQ3NX0.emDg7vffqCsHoRkr3W5yP-fVPapGrTrNVhuHaBCFr24'
 var sb, out
 
 function log(msg,col){
@@ -60,7 +60,9 @@ window.onload=async function(){
 
   // 2. Create client
   try{
-    sb=window.supabase.createClient(URL,KEY)
+    var supabaseUrl='https://mzesgwgmemscbemycnmm.supabase.co'
+    var supabaseKey='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZXNnd2dtZW1zY2JlbXljbm1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mjg0NzUsImV4cCI6MjA5MjAwNDQ3NX0.emDg7vffqCsHoRkr3W5yP-fVPapGrTrNVhuHaBCFr24'
+    sb=window.supabase.createClient(supabaseUrl,supabaseKey)
     log('✅ Client created','#4c4')
   }catch(e){log('❌ Client error: '+e.message,'#f55');return}
 
