@@ -294,6 +294,8 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 /* Hide mobile elements on desktop */
 
 /* JS adds class 'is-mobile' or 'is-desktop' to body */
+body.is-desktop #main-content{flex:1;overflow-y:auto;min-height:0}
+body.is-desktop .main{overflow:visible}
 body.is-desktop .mob-header,
 body.is-desktop .mob-tabbar,
 body.is-desktop .mob-list,
