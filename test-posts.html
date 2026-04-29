@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0050)file:///C:/Users/gregb/Downloads/test-posts_1.html -->
+<!-- saved from url=(0050)file:///C:/Users/gregb/Downloads/test-posts_2.html -->
 <html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Rockit DB Test</title>
-</head>
+<script src="./test-posts_files/supabase.min.js.download"></script></head>
 <body style="background:#000;color:#fff;font-family:sans-serif;padding:30px;max-width:500px;margin:auto">
 <h2>Rockit Database Test</h2>
 <div id="out" style="background:#111;padding:16px;border-radius:8px;line-height:1.8;font-size:13px"><div style="color:#4c4">✅ Supabase library loaded</div><div style="color:#f55">❌ Client error: URL is not a constructor</div></div>
@@ -12,7 +12,30 @@
 <button onclick="location.reload()" style="background:#7d70f5;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px">Retry</button>
 <button onclick="signOut()" style="background:#333;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;margin-left:8px">Sign Out</button>
 
-<script src="./test-posts_files/supabase.min.js.download"></script>
+<script>
+(function(){
+  var urls=[
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js',
+    'https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/supabase/2.39.3/umd/supabase.min.js'
+  ]
+  var i=0
+  function tryNext(){
+    if(i>=urls.length){
+      document.getElementById('loading').style.display='none'
+      document.getElementById('auth-screen').style.display='flex'
+      alert('Failed to load required library. Please check your internet connection and refresh.')
+      return
+    }
+    var s=document.createElement('script')
+    s.src=urls[i++]
+    s.onload=function(){console.log('Supabase loaded from:',s.src)}
+    s.onerror=function(){console.warn('Failed:',s.src);tryNext()}
+    document.head.appendChild(s)
+  }
+  tryNext()
+})()
+</script>
 <script>
 const URL='https://mzesgwgmemscbemycnmm.supabase.co'
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZXNnd2dtZW1zY2JlbXljbm1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mjg0NzUsImV4cCI6MjA5MjAwNDQ3NX0.emDg7vffqCsHoRkr3W5yP-fVPapGrTrNVhuHaBCFr24'
