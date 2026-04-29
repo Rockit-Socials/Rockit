@@ -478,23 +478,16 @@ async function boot(){
   if(SB_URL==='YOUR_URL'){renderSetup();return}
   SB=window.supabase.createClient(SB_URL,SB_KEY)
   document.getElementById('root').innerHTML='<div class="boot-screen"><div class="boot-logo"><img src="'+LOGO+'" /></div><div class="spinner"></div></div>'
-  
-  // Hard timeout - always show login after 6s no matter what
-  var bootTimer=setTimeout(function(){renderAuth()},6000)
-  
+  var _bt=setTimeout(function(){renderAuth()},6000)
   try{
     const{data:{session}}=await SB.auth.getSession()
-    clearTimeout(bootTimer)
+    clearTimeout(_bt)
     if(session?.user)await doLogin(session.user)
     else renderAuth()
-  }catch(e){
-    clearTimeout(bootTimer)
-    console.log('Boot error:',e.message)
-    renderAuth()
-  }
-  
+  }catch(e){clearTimeout(_bt);renderAuth()}
   SB.auth.onAuthStateChange(async(ev,s)=>{
-    if(ev==='SIGNED_OUT'){me=null;posts=[];sel=null;renderAuth()}
+    if(ev==='SIGNED_IN'&&s?.user)await doLogin(s.user)
+    else if(ev==='SIGNED_OUT'){me=null;posts=[];sel=null;renderAuth()}
   })
 }
 
@@ -502,12 +495,10 @@ async function doLogin(u){
   if(!u||!u.email){renderAuth();return}
   const m=u.user_metadata||{}
   me={id:u.id,email:u.email,name:m.name||u.email.split('@')[0],role:m.role||'creator'}
-  // Show app immediately, load posts in background
   renderApp()
-  try{await loadPosts()}catch(e){console.log('loadPosts:',e.message)}
+  try{await loadPosts()}catch(e){}
   try{startRT()}catch(e){}
-  refreshSB()
-  if(typeof refreshAll==='function')refreshAll()
+  refreshAll()
 }
 
 function norm(p){return{...p,platforms:Array.isArray(p.platforms)?p.platforms:[],media:Array.isArray(p.media)?p.media:[],aspect_ratios:p.aspect_ratios||{},post_comments:(p.post_comments||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))}}
@@ -628,46 +619,473 @@ function renderAuth(t){
 }
 
 async function doAuth(){
-  const emailEl=document.getElementById('a-email')
-  const passEl=document.getElementById('a-pass')
-  const btn=document.getElementById('a-btn')
-  const errEl=document.getElementById('a-err')
-  const email=(emailEl?emailEl.value:'').trim()
-  const pass=passEl?passEl.value:''
-  if(!email||!pass){if(errEl)errEl.innerHTML='<div class="auth-err">Please enter your email and password.</div>';return}
-  btn.disabled=true;btn.textContent='Please wait…'
-  if(errEl)errEl.innerHTML=''
-  try{
-    if(aTab==='login'){
-      const{data,error}=await SB.auth.signInWithPassword({email:email,password:pass})
-      if(error){
-        let msg=error.message
-        if(msg.toLowerCase().includes('invalid')||msg.toLowerCase().includes('credentials'))msg='Incorrect email or password.'
-        else if(msg.toLowerCase().includes('confirm'))msg='Please confirm your email address first.'
-        if(errEl)errEl.innerHTML='<div class="auth-err">'+msg+'</div>'
-        btn.disabled=false;btn.textContent='Sign in'
-      }else if(data&&data.user){
-        await doLogin(data.user)
-      }
-    }else{
-      const nameEl=document.getElementById('a-name')
-      const name=(nameEl?nameEl.value.trim():'')||email.split('@')[0]
-      const{data,error}=await SB.auth.signUp({email:email,password:pass,options:{data:{name:name,role:aRole}}})
-      if(error){
-        if(errEl)errEl.innerHTML='<div class="auth-err">'+error.message+'</div>'
-        btn.disabled=false;btn.textContent='Create account'
-      }else if(data&&data.session&&data.session.user){
-        await doLogin(data.session.user)
-      }else{
-        if(errEl)errEl.innerHTML='<div style="background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:10px;padding:12px;color:#34c759;font-size:13px;text-align:center">Account created! Check your email then sign in.</div>'
-        btn.disabled=false;btn.textContent='Sign in'
-      }
-    }
-  }catch(e){
-    if(errEl)errEl.innerHTML='<div class="auth-err">Error: '+e.message+'</div>'
-    btn.disabled=false;btn.textContent=aTab==='login'?'Sign in':'Create account'
+  const email=document.getElementById('a-email')?.value.trim(),pass=document.getElementById('a-pass')?.value
+  if(!email||!pass){document.getElementById('a-err').innerHTML='<div class="auth-err">Fill in all fields.</div>';return}
+  const btn=document.getElementById('a-btn');btn.disabled=true;btn.textContent='…'
+  let error
+  if(aTab==='login'){({error}=await SB.auth.signInWithPassword({email,password:pass}))}
+  else{
+    const name=document.getElementById('a-name')?.value.trim()||email.split('@')[0]
+    ;({error}=await SB.auth.signUp({email,password:pass,options:{data:{name,role:aRole}}}))
+    if(!error){toast('Account created! Check email then sign in.');renderAuth('login');return}
   }
+  if(error){document.getElementById('a-err').innerHTML=`<div class="auth-err">${error.message}</div>`;btn.disabled=false;btn.textContent=aTab==='login'?'Sign in':'Create account'}
 }
+
+/* ── APP SHELL ── */
+function renderApp(){
+  const s=getStats()
+  const isMob=isMobile()
+  document.getElementById('root').innerHTML=`
+<div class="app">
+  <!-- DESKTOP SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-head">
+      <div class="sb-brand-row">
+        <div class="sb-av-sm"><img src="${LOGO}" onerror="this.style.display='none'" /></div>
+        <span class="sb-brand-name">Post Approvals</span>
+      </div>
+      <button class="new-btn" onclick="openModal()">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="6.5" y1="1" x2="6.5" y2="12"/><line x1="1" y1="6.5" x2="12" y2="6.5"/></svg>
+        New post
+      </button>
+    </div>
+    <div class="sb-stats" id="sb-stats">
+      <div class="stat sp"><div class="stat-n">${s.p}</div><div class="stat-l">Pending</div></div>
+      <div class="stat sa"><div class="stat-n">${s.a}</div><div class="stat-l">Approved</div></div>
+      <div class="stat sr"><div class="stat-n">${s.r}</div><div class="stat-l">Rejected</div></div>
+    </div>
+    <div class="sb-tabs">
+      <button class="sb-tab${dTab==='posts'?' on':''}" onclick="setDTab('posts')">Posts</button>
+      <button class="sb-tab${dTab==='calendar'?' on':''}" onclick="setDTab('calendar')">Calendar</button>
+    </div>
+    <div id="desk-posts-view">
+      <div class="filters">
+        <span class="fpill${filter==='all'?' on':''}" onclick="setFilter('all',this)">All</span>
+        <span class="fpill${filter==='pending'?' on':''}" onclick="setFilter('pending',this)">Pending</span>
+        <span class="fpill${filter==='approved'?' on':''}" onclick="setFilter('approved',this)">Approved</span>
+        <span class="fpill${filter==='rejected'?' on':''}" onclick="setFilter('rejected',this)">Rejected</span>
+        <span class="fpill${filter==='archived'?' on':''}" onclick="setFilter('archived',this)">Archived</span>
+      </div>
+      <div class="post-list" id="post-list"></div>
+    </div>
+    <div id="desk-cal-view" style="display:none;flex:1;overflow:hidden;flex-direction:column">
+      <div class="cal-wrap" id="cal-wrap"></div>
+    </div>
+    <div class="sb-foot">
+      <div class="user-av">${ini(me.name)}</div>
+      <div style="flex:1;min-width:0"><div class="user-name">${me.name}</div><div class="user-role"><span id="rt-pip" class="rt-pip"></span>${me.role==='manager'?'Manager':'Creator'}</div></div>
+      <button class="signout" onclick="SB.auth.signOut()" title="Sign out"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+
+  <!-- DESKTOP MAIN -->
+  <div class="main" id="main">
+    <div class="topbar">
+      <div class="tb-badges" id="tb-badges"></div>
+      <div class="tb-actions" id="tb-actions"></div>
+    </div>
+    <div id="main-content">
+      <div class="empty-state">
+        <div class="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg></div>
+        <div class="empty-t">Select a post</div>
+        <div class="empty-s">Choose from the sidebar or tap + to create one.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE HEADER -->
+  <div class="mob-header">
+    <div class="mob-logo"><img src="${LOGO}" onerror="this.style.display='none'" /></div>
+    <div class="mob-title">Post Approvals</div>
+    <div class="mob-header-actions">
+      <button class="mob-new-btn" onclick="openModal()">+ New</button>
+    </div>
+  </div>
+
+  <!-- MOBILE LIST -->
+  <div class="mob-list" id="mob-list"></div>
+
+  <!-- MOBILE CALENDAR -->
+  <div class="mob-cal-view" id="mob-cal"></div>
+
+  <!-- MOBILE DETAIL (full screen slide-in) -->
+  <div class="mob-detail" id="mob-detail">
+    <div class="mob-detail-head">
+      <button class="mob-back-btn" onclick="closeMobDetail()">
+        <svg width="10" height="16" viewBox="0 0 10 16" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9,1 1,8 9,15"/></svg>
+        Posts
+      </button>
+      <div class="mob-detail-title" id="mob-detail-title">Review</div>
+      <div class="mob-detail-actions" id="mob-detail-actions"></div>
+    </div>
+    <div class="mob-detail-scroll" id="mob-detail-scroll"></div>
+  </div>
+
+  <!-- MOBILE TAB BAR -->
+  <div class="mob-tabbar">
+    <button class="mob-tab${mobView==='list'?' on':''}" id="mtab-list" onclick="setMobTab('list')">
+      <div class="mob-tab-icon-wrap">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="mob-tab-badge" id="mob-pending-badge" style="display:${s.p>0?'flex':'none'}">${s.p}</span>
+      </div>
+      <span class="mob-tab-label">Posts</span>
+    </button>
+    <button class="mob-tab${mobView==='calendar'?' on':''}" id="mtab-calendar" onclick="setMobTab('calendar')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="mob-tab-label">Calendar</span>
+    </button>
+    <button class="mob-tab" onclick="openModal()">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--p);display:flex;align-items:center;justify-content:center;margin-top:-6px">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="white" stroke-width="2.2"><line x1="9" y1="2" x2="9" y2="16"/><line x1="2" y1="9" x2="16" y2="9"/></svg>
+      </div>
+      <span class="mob-tab-label" style="margin-top:2px">Create</span>
+    </button>
+    <button class="mob-tab" onclick="doMobFilter()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      <span class="mob-tab-label">Filter</span>
+    </button>
+    <button class="mob-tab" onclick="doSignOut()">
+      <div class="user-av" style="width:24px;height:24px;font-size:9px">${ini(me.name)}</div>
+      <span class="mob-tab-label">${me.name.split(' ')[0]}</span>
+    </button>
+  </div>
+</div>`
+  refreshAll()
+}
+
+function getStats(){
+  return{p:posts.filter(x=>x.status==='pending').length,a:posts.filter(x=>x.status==='approved').length,r:posts.filter(x=>x.status==='rejected').length}
+}
+
+function refreshAll(){
+  refreshSB()
+  refreshDesktopMain()
+  if(isMobile())refreshMobList()
+}
+
+/* ── DESKTOP SIDEBAR ── */
+function refreshSB(){
+  const s=getStats()
+  const ss=document.getElementById('sb-stats')
+  if(ss)ss.innerHTML=`<div class="stat sp"><div class="stat-n">${s.p}</div><div class="stat-l">Pending</div></div><div class="stat sa"><div class="stat-n">${s.a}</div><div class="stat-l">Approved</div></div><div class="stat sr"><div class="stat-n">${s.r}</div><div class="stat-l">Rejected</div></div>`
+  const badge=document.getElementById('mob-pending-badge')
+  if(badge){badge.textContent=s.p;badge.style.display=s.p>0?'flex':'none'}
+  const el=document.getElementById('post-list');if(!el)return
+  const list=posts.filter(p=>filter==='all'?p.status!=='archived':p.status===filter)
+  if(!list.length){el.innerHTML='<div style="padding:20px;text-align:center;font-size:13px;color:var(--t3)">No posts.</div>';return}
+  el.innerHTML=list.map(p=>`<div class="pcard${sel?.id===p.id?' on':''}" onclick="pickPost('${p.id}')">
+    <div class="pc-top"><div class="pc-l"><span class="pip pip-${p.status||'archived'}"></span><span class="pc-plat">${(p.platforms||[]).map(x=>PLATS[x]||x).join(', ')||'—'}</span></div><span class="pc-time">${ago(p.created_at)}</span></div>
+    <div class="pc-cap">${p.caption}</div>
+    <div class="pc-meta"><span>v${p.version}</span><span>${(p.media||[]).length} media</span>${p.assigned_to?`<span>→ ${p.assigned_to}</span>`:''}</div>
+  </div>`).join('')
+}
+
+function setDTab(t){
+  dTab=t
+  document.querySelectorAll('.sb-tab').forEach(b=>b.classList.remove('on'))
+  document.querySelector(`.sb-tab[onclick="setDTab('${t}')"]`)?.classList.add('on')
+  const pv=document.getElementById('desk-posts-view'),cv=document.getElementById('desk-cal-view')
+  if(t==='posts'){if(pv)pv.style.display='block';if(cv)cv.style.display='none'}
+  else{if(pv)pv.style.display='none';if(cv){cv.style.display='flex';cv.style.flexDirection='column'};renderCal('cal-wrap')}
+}
+
+function setFilter(f,el){filter=f;document.querySelectorAll('.fpill').forEach(p=>p.classList.remove('on'));el.classList.add('on');refreshSB();if(isMobile())refreshMobList()}
+
+function pickPost(id){
+  editMode=false
+  sel=posts.find(p=>p.id===id)
+  refreshSB()
+  if(isMobile()){openMobDetail()}
+  else{refreshDesktopMain()}
+}
+
+/* ── MOBILE LIST ── */
+function refreshMobList(){
+  const ml=document.getElementById('mob-list');if(!ml)return
+  const s=getStats()
+  const list=posts.filter(p=>filter==='all'?p.status!=='archived':p.status===filter)
+  const thumb=(p)=>{
+    const firstImg=(p.media||[]).find(m=>m.type==='image')
+    if(firstImg)return`<div class="mob-card-thumb"><img src="${firstImg.url}" onerror="this.parentElement.innerHTML='<div style=width:100%;height:100%;background:var(--c4);border-radius:9px></div>'" /></div>`
+    return`<div class="mob-card-thumb-empty"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--t4)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`
+  }
+  const stMap={pending:'st-p',approved:'st-a',rejected:'st-r',archived:'st-n'}
+  const stLbl={pending:'Pending',approved:'Approved',rejected:'Changes requested',archived:'Archived'}
+  ml.innerHTML=`
+    <div style="background:var(--c0)">
+      <div class="mob-stats">
+        <div class="mob-stat sp"><div class="mob-stat-n">${s.p}</div><div class="mob-stat-l">Pending</div></div>
+        <div class="mob-stat sa"><div class="mob-stat-n">${s.a}</div><div class="mob-stat-l">Approved</div></div>
+        <div class="mob-stat sr"><div class="mob-stat-n">${s.r}</div><div class="mob-stat-l">Rejected</div></div>
+      </div>
+      <div class="mob-filters" id="mob-filter-pills">
+        <span class="fpill${filter==='all'?' on':''}" onclick="setFilter('all',this)">All</span>
+        <span class="fpill${filter==='pending'?' on':''}" onclick="setFilter('pending',this)">Pending</span>
+        <span class="fpill${filter==='approved'?' on':''}" onclick="setFilter('approved',this)">Approved</span>
+        <span class="fpill${filter==='rejected'?' on':''}" onclick="setFilter('rejected',this)">Rejected</span>
+        <span class="fpill${filter==='archived'?' on':''}" onclick="setFilter('archived',this)">Archived</span>
+      </div>
+      ${!list.length?'<div style="padding:32px;text-align:center;font-size:14px;color:var(--t3)">No posts found.</div>':list.map(p=>`
+        <div class="mob-post-card" onclick="pickPost('${p.id}')">
+          ${thumb(p)}
+          <div class="mob-card-body">
+            <div class="mob-card-top">
+              <span class="mob-card-plat">${(p.platforms||[]).map(x=>PLATS[x]||x).join(', ')||'—'}</span>
+              <span class="status-tag ${stMap[p.status]||'st-n'}">${stLbl[p.status]||'—'}</span>
+            </div>
+            <div class="mob-card-cap">${p.caption}</div>
+            <div class="mob-card-meta">
+              <span>v${p.version}</span>
+              <span>${(p.media||[]).length} media</span>
+              ${p.scheduled_date?`<span>${p.scheduled_date}</span>`:''}
+              ${overdue(p)?'<span style="color:var(--r);font-weight:600">OVERDUE</span>':''}
+            </div>
+          </div>
+          <span class="mob-card-arrow">›</span>
+        </div>`).join('')}
+    </div>`
+}
+
+function setMobTab(t){
+  mobView=t
+  document.querySelectorAll('.mob-tab').forEach(b=>b.classList.remove('on'))
+  document.getElementById('mtab-'+t)?.classList.add('on')
+  const ml=document.getElementById('mob-list'),mc=document.getElementById('mob-cal')
+  if(t==='list'){if(ml)ml.style.display='block';if(mc)mc.classList.remove('show')}
+  else if(t==='calendar'){if(ml)ml.style.display='none';if(mc){mc.classList.add('show');renderCal('mob-cal')}}
+}
+
+function doMobFilter(){
+  const options=['all','pending','approved','rejected','archived']
+  const labels=['All','Pending','Approved','Rejected','Archived']
+  const choice=labels[options.indexOf(filter)]
+  const next=options[(options.indexOf(filter)+1)%options.length]
+  setFilter(next,{classList:{add:()=>{},remove:()=>{}}})
+  const pills=document.querySelectorAll('.fpill')
+  pills.forEach(p=>p.classList.remove('on'))
+  toast('Filter: '+labels[options.indexOf(next)])
+  refreshMobList()
+}
+
+function doSignOut(){SB.auth.signOut()}
+
+/* ── MOBILE DETAIL ── */
+function openMobDetail(){
+  if(!sel)return
+  const d=document.getElementById('mob-detail')
+  if(d){d.classList.add('open');refreshDetail()}
+}
+
+function closeMobDetail(){
+  const d=document.getElementById('mob-detail')
+  if(d)d.classList.remove('open')
+}
+
+function refreshDetail(){
+  if(!sel)return
+  if(!isMobile()){refreshDesktopMain();return}
+  const p=sel
+  const bmap={pending:'b-p',approved:'b-a',rejected:'b-r',archived:'b-n'}
+  const blmap={pending:'Pending',approved:'Approved',rejected:'Changes requested',archived:'Archived'}
+  const canAct=p.status==='pending'
+  const prevs=(p.platforms||[]).map(plat=>renderPrev(plat,p)).join('')
+  const acts=(p.post_comments||[]).map(c=>{const sys=c.is_system||c.author_name?.startsWith('⚙');return`<div class="log-entry"><span class="${sys?'log-sys':'log-who'}">${c.author_name}</span><span class="log-body">${c.body}</span><span class="log-ts">${ago(c.created_at)}</span></div>`}).join('')||'<div style="font-size:11px;color:var(--t3);padding:2px 4px">No activity yet.</div>'
+  document.getElementById('mob-detail-title').textContent=(p.platforms||[]).map(x=>PLATS[x]||x).join(', ')||'Post'
+  document.getElementById('mob-detail-actions').innerHTML=`<button class="tbtn tbtn-edit" onclick="openModal('${p.id}')">Edit</button>`
+  const capLen=(p.caption||'').length
+  const charH=(p.platforms||[]).map(plat=>{const lim=CHAR[plat]||99999;const cls=capLen>lim?'c-ov':capLen>lim*.9?'c-warn':'c-ok';return`<span class="ci"><span class="${cls}">${capLen}/${lim}</span> <span style="color:var(--t3)">${pl(plat)}</span></span>`}).join('')
+  document.getElementById('mob-detail-scroll').innerHTML=`
+    <div style="padding:10px 16px;background:var(--c1);border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="badge ${bmap[p.status]||'b-n'}">${blmap[p.status]||'Unknown'}</span>
+      <span class="badge b-v">v${p.version}</span>
+      ${overdue(p)?'<span class="badge b-od">Overdue</span>':''}
+    </div>
+    <div class="mob-meta">
+      <div class="mob-meta-row"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <strong>${p.scheduled_date||'No date set'}${p.scheduled_time?' · '+p.scheduled_time:''}</strong></div>
+      <div class="mob-meta-row"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <strong>${p.created_by_name||'—'}</strong></div>
+      ${p.assigned_to?`<div class="mob-meta-row"><strong>Assigned to ${p.assigned_to}</strong></div>`:''}
+      ${p.approval_deadline?`<div class="mob-meta-row${overdue(p)?' due-warn':''}"><strong>${overdue(p)?'⚠ ':''}>Due ${p.approval_deadline}</strong></div>`:''}
+    </div>
+    ${charH?`<div class="char-strip">${charH}</div>`:''}
+    <div class="previews">${prevs}</div>
+    <div class="log-area">
+      <div class="log-hdr">Activity</div>
+      <div class="log-list">${acts}</div>
+      <div class="cmt-row">
+        <input class="cmt-input" id="mob-cmt-in" type="text" placeholder="Add a comment…" onkeydown="if(event.key==='Enter')sendCmt(true)" />
+        <button class="cmt-send" onclick="sendCmt(true)">Send</button>
+      </div>
+    </div>
+    ${canAct?`<div class="mob-action-bar">
+      <button class="mob-act-btn mob-edit" onclick="openModal('${p.id}')">Edit</button>
+      <button class="mob-act-btn mob-reject" onclick="doReject()">Reject</button>
+      <button class="mob-act-btn mob-approve" onclick="doApprove()">Approve ✓</button>
+    </div>`:`<div class="mob-action-bar">
+      <button class="mob-act-btn mob-edit" onclick="openModal('${p.id}')">Edit</button>
+      <button class="mob-act-btn mob-reject" style="background:var(--c3);color:var(--t3);border:1px solid var(--sep)" onclick="doArchive()">${p.status==='archived'?'Unarchive':'Archive'}</button>
+    </div>`}`
+}
+
+/* ── DESKTOP MAIN ── */
+function refreshDesktopMain(){
+  const mc=document.getElementById('main-content');if(!mc)return
+  if(!sel){
+    mc.innerHTML='<div class="empty-state"><div class="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--p)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg></div><div class="empty-t">Select a post</div><div class="empty-s">Choose from the sidebar or click + to create one.</div></div>'
+    const tbb=document.getElementById('tb-badges'),tba=document.getElementById('tb-actions')
+    if(tbb)tbb.innerHTML='';if(tba)tba.innerHTML=''
+    return
+  }
+  const p=sel
+  const bmap={pending:'b-p',approved:'b-a',rejected:'b-r',archived:'b-n'}
+  const blmap={pending:'Pending',approved:'Approved',rejected:'Changes requested',archived:'Archived'}
+  const canAct=p.status==='pending',od=overdue(p)
+  const tbb=document.getElementById('tb-badges'),tba=document.getElementById('tb-actions')
+  if(tbb)tbb.innerHTML=`<span class="badge ${bmap[p.status]||'b-n'}">${blmap[p.status]||'Unknown'}</span><span class="badge b-v">v${p.version}</span>${od?'<span class="badge b-od">Overdue</span>':''}`
+  if(tba)tba.innerHTML=`<button class="tbtn tbtn-edit" onclick="openModal('${p.id}')">Edit</button><button class="tbtn" onclick="doArchive()">${p.status==='archived'?'Unarchive':'Archive'}</button><button class="tbtn tbtn-del" onclick="doDelete()">Delete</button>${canAct?`<button class="tbtn tbtn-rej" onclick="doReject()">Reject</button><button class="tbtn tbtn-app" onclick="doApprove()">Approve ✓</button>`:''}`
+  const capLen=(p.caption||'').length
+  const charH=(p.platforms||[]).map(plat=>{const lim=CHAR[plat]||99999;const cls=capLen>lim?'c-ov':capLen>lim*.9?'c-warn':'c-ok';return`<span class="ci"><span class="${cls}">${capLen}/${lim}</span><span style="color:var(--t3)">${pl(plat)}</span></span>`}).join('')
+  const acts=(p.post_comments||[]).map(c=>{const sys=c.is_system||c.author_name?.startsWith('⚙');return`<div class="log-entry"><span class="${sys?'log-sys':'log-who'}">${c.author_name}</span><span class="log-body">${c.body}</span><span class="log-ts">${ago(c.created_at)}</span></div>`}).join('')||'<div style="font-size:11px;color:var(--t3);padding:2px 4px">No activity yet.</div>'
+  mc.innerHTML=`
+    <div class="meta-strip">
+      <div class="mi"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <strong>${p.scheduled_date||'—'}${p.scheduled_time?' · '+p.scheduled_time:''}</strong></div>
+      <div class="mi"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <strong>${p.created_by_name||'—'}</strong></div>
+      ${p.approval_deadline?`<div class="mi${od?' due-warn':''}"><strong>${od?'⚠ ':''} Due ${p.approval_deadline}</strong></div>`:''}
+      ${p.assigned_to?`<div class="mi"><strong>→ ${p.assigned_to}</strong></div>`:''}
+    </div>
+    ${charH?`<div class="char-strip">${charH}</div>`:''}
+    <div class="previews" id="pv-area">${(p.platforms||[]).map(plat=>renderPrev(plat,p)).join('')}</div>
+    <div class="log-area">
+      <div class="log-hdr">Activity</div>
+      <div class="log-list">${acts}</div>
+      <div class="cmt-row"><input class="cmt-input" id="desk-cmt-in" type="text" placeholder="Add a comment…" onkeydown="if(event.key==='Enter')sendCmt(false)" /><button class="cmt-send" onclick="sendCmt(false)">Send</button></div>
+    </div>`
+}
+
+/* ── CALENDAR ── */
+function renderCal(containerId){
+  const cw=document.getElementById(containerId);if(!cw)return
+  const y=calM.getFullYear(),m=calM.getMonth()
+  const mn=calM.toLocaleString('default',{month:'long',year:'numeric'})
+  const fd=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),dip=new Date(y,m,0).getDate()
+  const today=new Date(),cells=[]
+  for(let i=fd-1;i>=0;i--)cells.push({d:dip-i,cur:false})
+  for(let d=1;d<=dim;d++)cells.push({d,cur:true})
+  while(cells.length%7!==0)cells.push({d:cells.length-fd-dim+1,cur:false})
+  const pfd=(d,cur)=>!cur?[]:posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=new Date(p.scheduled_date);return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
+  cw.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>
+  <div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{
+    const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
+    const dp=pfd(d,cur)
+    return`<div class="cal-day${!cur?' other':''}${isT?' today':''}"><div class="cal-dn">${d}</div>${dp.map(p=>`<div class="cal-ev ce-${p.status[0]}" onclick="pickPost('${p.id}')">${(p.platforms||[]).map(x=>({instagram:'IG',facebook:'FB',linkedin:'LI'}[x]||'').slice(0,2)).join(' ')} ${p.caption.slice(0,10)}…</div>`).join('')}</div>`
+  }).join('')}</div>`
+}
+
+/* ── PREVIEWS ── */
+function getCI(pid,plat){return(carIdx[pid]||{})[plat]||0}
+function setCI(pid,plat,v){if(!carIdx[pid])carIdx[pid]={};carIdx[pid][plat]=v}
+function carNav(pid,plat,dir){
+  const p=posts.find(x=>x.id===pid);if(!p?.media?.length)return
+  let i=getCI(pid,plat);i=(i+dir+p.media.length)%p.media.length;setCI(pid,plat,i)
+  const pv=document.getElementById('pv-area');if(pv)pv.innerHTML=(p.platforms||[]).map(pl=>renderPrev(pl,p)).join('')
+  if(isMobile())refreshDetail()
+}
+function playVid(uid){const v=document.getElementById(uid),ov=document.getElementById('ov_'+uid);if(!v)return;ov?.classList.add('gone');v.controls=true;v.play()}
+
+function renderMedia(media,pid,plat){
+  const p2=posts.find(x=>x.id===pid)||sel||{},ar=getAR(p2,plat),maxH=ar==='9/16'?'420px':'none'
+  if(!media?.length)return`<div style="aspect-ratio:${ar};max-height:${maxH};background:#111;display:flex;align-items:center;justify-content:center"><span style="font-size:12px;color:var(--t3)">No media</span></div>`
+  const idx=getCI(pid,plat),total=media.length,item=media[idx],uid=`v_${pid}_${plat}_${idx}`
+  let slide
+  if(item.type==='video'){
+    const emb=getVidEmbed(item.url)
+    if(emb)slide=`<div style="position:relative;width:100%;height:100%;background:#000"><iframe src="${emb.url}" style="width:100%;height:100%;border:none;display:block" allow="autoplay;fullscreen;picture-in-picture" allowfullscreen loading="lazy"></iframe><div class="vid-tag">${emb.lbl}</div></div>`
+    else slide=`<div class="vid-shell"><video id="${uid}" src="${item.url}" playsinline preload="metadata" style="width:100%;height:100%;object-fit:contain;background:#000"></video><div class="vid-cover" id="ov_${uid}" onclick="playVid('${uid}')"><div class="play-disc"><svg width="16" height="18" viewBox="0 0 16 18" fill="#000"><polygon points="2,1 14,9 2,17"/></svg></div></div><div class="vid-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>Video</div></div>`
+  } else {
+    if(editMode){
+      const pk=pid+'_'+plat+'_'+idx
+      if(!imgPos[pk])imgPos[pk]={x:0,y:0,s:1}
+      const pos=imgPos[pk]
+      slide=`<div class="img-mover" id="im_${pk}" style="width:100%;height:100%" onmousedown="startDrag(event,'${pk}')" ontouchstart="startDragT(event,'${pk}')"><img id="img_${pk}" src="${item.url}" style="width:${Math.round(pos.s*100)}%;height:auto;min-height:100%;transform:translate(${pos.x}px,${pos.y}px)" onerror="this.style.opacity=.1" onload="initImg('${pk}')" /></div>
+      <div class="pos-bar"><div class="pos-l"><button class="pos-ic" onclick="zoomI('${pk}',-0.1)">−</button><input class="pos-range" type="range" min="1" max="3" step="0.05" value="${pos.s}" oninput="setZ('${pk}',parseFloat(this.value))" /><button class="pos-ic" onclick="zoomI('${pk}',0.1)">+</button><span class="pos-pct">${Math.round(pos.s*100)}%</span></div><button class="pos-reset" onclick="resetI('${pk}')">Reset</button></div>`
+    } else {
+      slide=`<img src="${item.url}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none" onerror="this.style.opacity=.1" />`
+    }
+  }
+  const prev=total>1?`<button class="car-arrow car-l" onclick="carNav('${pid}','${plat}',-1)">‹</button>`:''
+  const next=total>1?`<button class="car-arrow car-r" onclick="carNav('${pid}','${plat}',1)">›</button>`:''
+  const dots=total>1?`<div class="car-dots">${media.map((_,i)=>`<div class="car-dot${i===idx?' on':''}"></div>`).join('')}</div>`:''
+  const cnt=total>1&&item.type!=='video'?`<div class="cnt-tag">${idx+1}/${total}</div>`:''
+  return`<div class="car" style="aspect-ratio:${ar};max-height:${maxH}">${slide}${prev}${next}${dots}${cnt}</div>`
+}
+
+function renderPrev(plat,p){
+  const acc=p.account||'Rockit Events'
+  const handle='rockitevent'
+  const arPicker=`<div class="ar-row">${(AR[plat]||[]).map(o=>`<button class="ar-chip${getAR(p,plat)===o.v?' on':''}" onclick="setAR('${p.id}','${plat}','${o.v}')">${o.l}</button>`).join('')}</div>`
+  const media=renderMedia(p.media||[],p.id,plat)
+  let card=''
+  if(plat==='instagram'){
+    card=`<div class="ig">
+      <div class="ig-hd">
+        <div class="ig-av"><img src="${LOGO}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ig-av-fallback" style="display:none">${ini(acc)}</div></div>
+        <div class="ig-un">rockitevent<small>Rockit Event Production</small></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#000"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      </div>
+      ${media}
+      <div class="ig-acts"><svg class="ig-ico" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><svg class="ig-ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><svg class="ig-ico" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg><svg class="ig-ico ig-bm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="ig-lk">1,284 likes</div>
+      <div class="ig-cap"><b>rockitevent</b> ${p.caption}</div>
+      <div class="ig-cm">View all 48 comments</div>
+    </div>`
+  } else if(plat==='facebook'){
+    card=`<div class="fb">
+      <div class="fb-hd">
+        <div class="fb-av"><img src="${LOGO}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="fb-av-fallback" style="display:none">${ini(acc)}</div></div>
+        <div><div class="fb-nm">Rockit Event Production</div><div class="fb-mt">${p.scheduled_date||'Scheduled'} · Public</div></div>
+      </div>
+      <div class="fb-tx">${p.caption}</div>
+      ${media}
+      <div class="fb-rx"><span>Like · Love · Haha &nbsp;3.2K</span><span>248 comments</span></div>
+      <div class="fb-ar"><div class="fb-ab">Like</div><div class="fb-ab">Comment</div><div class="fb-ab">Share</div></div>
+    </div>`
+  } else if(plat==='linkedin'){
+    card=`<div class="li">
+      <div class="li-hd">
+        <div class="li-av"><img src="${LOGO}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="li-av-fallback" style="display:none">${ini(acc)}</div></div>
+        <div><div class="li-nm">Rockit Event Production</div><div class="li-hl">${p.headline||'Event Production'}</div><div class="li-dt">${p.scheduled_date||'Scheduled'} · Public</div></div>
+      </div>
+      <div class="li-tx">${p.caption}</div>
+      ${(p.media||[]).length?media:''}
+      <div class="li-rx"><span>Like · Celebrate · Insightful &nbsp;1,482</span><span>63 comments</span></div>
+      <div class="li-dv"></div>
+      <div class="li-ar"><div class="li-ab">Like</div><div class="li-ab">Comment</div><div class="li-ab">Repost</div><div class="li-ab">Send</div></div>
+    </div>`
+  }
+  return`<div class="pvpanel"><div class="pvlabel">${pl(plat)}</div>${editMode?arPicker:''}<div class="pv-frame">${card}</div></div>`
+}
+
+function setAR(pid,plat,ar){
+  const p=posts.find(x=>x.id===pid);if(!p)return
+  if(!p.aspect_ratios)p.aspect_ratios={};p.aspect_ratios[plat]=ar
+  if(sel?.id===pid)sel.aspect_ratios=p.aspect_ratios
+  const pv=document.getElementById('pv-area');if(pv&&sel)pv.innerHTML=(sel.platforms||[]).map(pl=>renderPrev(pl,sel)).join('')
+  if(isMobile())refreshDetail()
+}
+
+/* ── IMAGE POSITIONING ── */
+function getP(k){return imgPos[k]||(imgPos[k]={x:0,y:0,s:1})}
+function initImg(k){const c=document.getElementById('im_'+k),img=document.getElementById('img_'+k);if(!c||!img)return;const cw=c.offsetWidth,ch=c.offsetHeight,iw=img.naturalWidth,ih=img.naturalHeight;if(!cw||!ch||!iw||!ih)return;const pos=getP(k);if(pos.s===1){pos.s=Math.max(1,Math.max(cw/iw,ch/ih));pos.x=(cw-iw*pos.s)/2;pos.y=(ch-ih*pos.s)/2;applyP(k)}}
+function applyP(k){const img=document.getElementById('img_'+k),sl=document.querySelector(`input[oninput*="${k}"]`),pct=sl?.nextElementSibling,pos=getP(k);if(img){img.style.transform=`translate(${Math.round(pos.x)}px,${Math.round(pos.y)}px)`;img.style.width=Math.round(pos.s*100)+'%'};if(sl)sl.value=pos.s;if(pct)pct.textContent=Math.round(pos.s*100)+'%'}
+function clampP(k){const c=document.getElementById('im_'+k),img=document.getElementById('img_'+k);if(!c||!img)return;const pos=getP(k),cw=c.offsetWidth,ch=c.offsetHeight,iw=img.naturalWidth*pos.s,ih=img.naturalHeight*pos.s;pos.x=Math.max(Math.min(0,cw-iw),Math.min(0,pos.x));pos.y=Math.max(Math.min(0,ch-ih),Math.min(0,pos.y))}
+function setZ(k,v){const pos=getP(k),c=document.getElementById('im_'+k),img=document.getElementById('img_'+k);if(!c||!img)return;pos.s=Math.max(Math.max(c.offsetWidth/(img.naturalWidth||1),c.offsetHeight/(img.naturalHeight||1)),Math.min(3,v));clampP(k);applyP(k)}
+function zoomI(k,d){setZ(k,getP(k).s+d)}
+function resetI(k){imgPos[k]={x:0,y:0,s:1};setTimeout(()=>initImg(k),30)}
+function startDrag(e,k){if(e.button!==0)return;e.preventDefault();const pos=getP(k);mouseD={k,sx:e.clientX-pos.x,sy:e.clientY-pos.y};const mv=ev=>{if(!mouseD)return;const p=getP(mouseD.k);p.x=ev.clientX-mouseD.sx;p.y=ev.clientY-mouseD.sy;clampP(mouseD.k);applyP(mouseD.k)};const up=()=>{mouseD=null;document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up)}
+function startDragT(e,k){if(e.touches.length!==1)return;e.preventDefault();const pos=getP(k),t=e.touches[0];touchD={k,sx:t.clientX-pos.x,sy:t.clientY-pos.y};const mv=ev=>{if(!touchD||!ev.touches[0])return;const p=getP(touchD.k);p.x=ev.touches[0].clientX-touchD.sx;p.y=ev.touches[0].clientY-touchD.sy;clampP(touchD.k);applyP(touchD.k)};const up=()=>{touchD=null;document.removeEventListener('touchmove',mv);document.removeEventListener('touchend',up)};document.addEventListener('touchmove',mv,{passive:false});document.addEventListener('touchend',up)}
+document.addEventListener('wheel',e=>{if(!editMode)return;const el=e.target.closest('.img-mover');if(!el)return;e.preventDefault();setZ(el.id.replace('im_',''),getP(el.id.replace('im_','')).s+(e.deltaY>0?-.05:.05))},{passive:false})
+
+/* ── ACTIONS ── */
 async function doApprove(){if(!sel)return;const e=await savePost(sel.id,{status:'approved'});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,'Post approved ✓',true);toast('Approved ✓');refreshAll();if(isMobile())closeMobDetail()}}
 async function doReject(){if(!sel)return;const e=await savePost(sel.id,{status:'rejected'});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,'Changes requested.',true);toast('Changes requested');refreshAll();if(isMobile())closeMobDetail()}}
 async function doArchive(){if(!sel)return;const ns=sel.status==='archived'?'pending':'archived';const e=await savePost(sel.id,{status:ns});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,ns==='archived'?'Archived.':'Unarchived.',true);toast(ns==='archived'?'Archived':'Unarchived');refreshAll()}}
