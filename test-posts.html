@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!-- saved from url=(0048)file:///C:/Users/gregb/Downloads/test-posts.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rockit DB Test</title>
+</head>
+<body style="background:#000;color:#fff;font-family:sans-serif;padding:30px;max-width:500px;margin:auto">
+<h2>Rockit Database Test</h2>
+<div id="out" style="background:#111;padding:16px;border-radius:8px;line-height:1.8;font-size:13px"><div style="color:#f55">❌ Supabase library NOT loaded</div></div>
+<br>
+<button onclick="location.reload()" style="background:#7d70f5;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px">Retry</button>
+<button onclick="signOut()" style="background:#333;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;margin-left:8px">Sign Out</button>
+
+<script src="file:///C:/Users/gregb/Downloads/supabase.min.js"></script>
+<script>
+const URL='https://mzesgwgmemscbemycnmm.supabase.co'
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZXNnd2dtZW1zY2JlbXljbm1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mjg0NzUsImV4cCI6MjA5MjAwNDQ3NX0.emDg7vffqCsHoRkr3W5yP-fVPapGrTrNVhuHaBCFr24'
+var sb, out
+
+function log(msg,col){
+  out.innerHTML+='<div style="color:'+(col||'#fff')+'">'+msg+'</div>'
+}
+
+async function signOut(){
+  if(sb) await sb.auth.signOut()
+  location.href=location.href
+}
+
+window.onload=async function(){
+  out=document.getElementById('out')
+  out.innerHTML=''
+
+  // 1. Check supabase loaded
+  if(!window.supabase){log('❌ Supabase library NOT loaded','#f55');return}
+  log('✅ Supabase library loaded','#4c4')
+
+  // 2. Create client
+  try{
+    sb=window.supabase.createClient(URL,KEY)
+    log('✅ Client created','#4c4')
+  }catch(e){log('❌ Client error: '+e.message,'#f55');return}
+
+  // 3. Check session
+  const{data:{session}}=await sb.auth.getSession()
+  if(session){
+    log('✅ Logged in as: '+session.user.email,'#4c4')
+  }else{
+    log('❌ NOT logged in — please sign in on the main app first','#fa0')
+    return
+  }
+
+  // 4. Try to read posts
+  const{data,error}=await sb.from('posts').select('id,caption,status').limit(20)
+  if(error){
+    log('❌ Posts error: '+error.message,'#f55')
+    log('Code: '+error.code,'#f55')
+    log('Hint: '+error.hint,'#fa0')
+  }else{
+    log('✅ Posts loaded: '+data.length+' found','#4c4')
+    data.forEach(function(p){
+      log('  — '+p.status+': '+p.caption.slice(0,40),'#aaa')
+    })
+  }
+}
+</script>
+
+
+</body></html>
