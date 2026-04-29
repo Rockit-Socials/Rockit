@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!-- saved from url=(0047)file:///C:/Users/gregb/Downloads/test-auth.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Login Test</title>
+<script src="./test-auth_files/supabase.min.js.download"></script>
+</head>
+<body style="background:#000;color:#fff;font-family:sans-serif;padding:40px;max-width:400px;margin:auto">
+<h2>Rockit Login Test</h2>
+<div id="status" style="padding: 10px; margin: 10px 0px; background: rgb(85, 0, 0); border-radius: 8px;">ERROR: URL is not a constructor</div>
+<br>
+<input id="email" type="email" placeholder="Email" style="width:100%;padding:12px;margin-bottom:10px;border-radius:8px;border:1px solid #333;background:#111;color:#fff;font-size:16px"><br>
+<input id="pass" type="password" placeholder="Password" style="width:100%;padding:12px;margin-bottom:10px;border-radius:8px;border:1px solid #333;background:#111;color:#fff;font-size:16px"><br>
+<button onclick="tryLogin()" style="width:100%;padding:14px;background:#7d70f5;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer">Sign In</button>
+<div id="result" style="margin-top:20px;padding:10px;border-radius:8px;display:none"></div>
+
+<script>
+const URL = 'https://mzesgwgmemscbemycnmm.supabase.co'
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZXNnd2dtZW1zY2JlbXljbm1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mjg0NzUsImV4cCI6MjA5MjAwNDQ3NX0.emDg7vffqCsHoRkr3W5yP-fVPapGrTrNVhuHaBCFr24'
+
+let sb
+
+function setStatus(msg, col) {
+  const el = document.getElementById('status')
+  el.textContent = msg
+  el.style.background = col || '#111'
+}
+
+function setResult(msg, col) {
+  const el = document.getElementById('result')
+  el.textContent = msg
+  el.style.display = 'block'
+  el.style.background = col || '#111'
+}
+
+window.onload = function() {
+  try {
+    if (!window.supabase) { setStatus('ERROR: Supabase library not loaded', '#500'); return }
+    sb = window.supabase.createClient(URL, KEY)
+    setStatus('✓ Supabase connected. Enter credentials and sign in.', '#050')
+  } catch(e) {
+    setStatus('ERROR: ' + e.message, '#500')
+  }
+}
+
+async function tryLogin() {
+  const email = document.getElementById('email').value.trim()
+  const pass = document.getElementById('pass').value
+  if (!email || !pass) { setResult('Enter email and password', '#330'); return }
+  setResult('Signing in...', '#111')
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
+    if (error) {
+      setResult('FAILED: ' + error.message, '#500')
+    } else {
+      setResult('✓ SUCCESS! Logged in as: ' + data.user.email, '#050')
+    }
+  } catch(e) {
+    setResult('ERROR: ' + e.message, '#500')
+  }
+}
+</script>
+
+
+</body></html>
