@@ -192,6 +192,21 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .mob-cal-status{display:inline-flex;align-items:center;height:18px;padding:0 8px;border-radius:9px;font-size:10.5px;font-weight:500;margin-top:4px}
 .mob-cal-month{font-size:16px;font-weight:600;letter-spacing:-.2px;margin:14px 0 10px;color:var(--t1)}
 .mob-cal-day-header{font-size:12px;font-weight:500;color:var(--t3);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--sep)}
+/* Day posts sheet */
+.cal-day-sheet{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end}
+.cal-day-sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px)}
+.cal-day-sheet-card{position:relative;background:var(--c2);border-radius:20px 20px 0 0;padding:16px;max-height:70vh;overflow-y:auto;border-top:1px solid var(--sep)}
+.cal-day-sheet-pill{width:36px;height:4px;background:var(--c5);border-radius:2px;margin:0 auto 14px}
+.cal-day-sheet-title{font-size:16px;font-weight:600;margin-bottom:12px;letter-spacing:-.2px}
+.cal-day-sheet-post{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--sep);cursor:pointer}
+.cal-day-sheet-post:last-child{border-bottom:none}
+.cal-day-sheet-post:active{opacity:.6}
+.cal-sheet-thumb{width:52px;height:52px;border-radius:9px;overflow:hidden;flex-shrink:0;background:var(--c3)}
+.cal-sheet-thumb img{width:100%;height:100%;object-fit:cover}
+.cal-sheet-body{flex:1;min-width:0}
+.cal-sheet-plat{font-size:13px;font-weight:600;margin-bottom:2px}
+.cal-sheet-cap{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-sheet-meta{font-size:11px;color:var(--t3);margin-top:2px}
 .ce-p{background:var(--adim);color:var(--a)}.ce-a{background:var(--gdim);color:var(--g)}.ce-r{background:var(--rdim);color:var(--r)}
 
 /* ══════════════════════════════════
@@ -295,7 +310,7 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
   .mob-tab-icon-wrap{position:relative;display:inline-flex}
 
   /* ── MOBILE: CALENDAR TAB ── */
-  .mob-cal-view{flex:1;overflow-y:auto;display:none;padding:12px;min-height:0}
+  .mob-cal-view{position:fixed;inset:0;bottom:calc(var(--tab-h) + var(--safe-b));overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;background:var(--c0)}
   .mob-cal-view.show{display:block}
 
   /* ── HIDE desktop elements on mobile ── */
@@ -977,20 +992,83 @@ function refreshDesktopMain(){
 /* ── CALENDAR ── */
 function renderCal(containerId){
   const cw=document.getElementById(containerId);if(!cw)return
+  const isMobCal=containerId==='mob-cal'
   const y=calM.getFullYear(),m=calM.getMonth()
   const mn=calM.toLocaleString('default',{month:'long',year:'numeric'})
   const fd=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),dip=new Date(y,m,0).getDate()
-  const today=new Date(),cells=[]
+  const today=new Date()
+  // Build cells
+  const cells=[]
   for(let i=fd-1;i>=0;i--)cells.push({d:dip-i,cur:false})
   for(let d=1;d<=dim;d++)cells.push({d,cur:true})
   while(cells.length%7!==0)cells.push({d:cells.length-fd-dim+1,cur:false})
-  const pfd=(d,cur)=>!cur?[]:posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=new Date(p.scheduled_date);return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
-  cw.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>
-  <div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{
-    const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
-    const dp=pfd(d,cur)
-    return`<div class="cal-day${!cur?' other':''}${isT?' today':''}"><div class="cal-dn">${d}</div>${dp.map(p=>`<div class="cal-ev ce-${p.status[0]}" onclick="pickPost('${p.id}')">${(p.platforms||[]).map(x=>({instagram:'IG',facebook:'FB',linkedin:'LI'}[x]||'').slice(0,2)).join(' ')} ${p.caption.slice(0,10)}…</div>`).join('')}</div>`
-  }).join('')}</div>`
+  // Posts for a given day
+  const pfd=(d,cur)=>{
+    if(!cur)return[]
+    return posts.filter(p=>{
+      if(!p.scheduled_date)return false
+      try{
+        const pd=new Date(p.scheduled_date)
+        return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d
+      }catch{return false}
+    })
+  }
+  const navHtml=`<div class="cal-nav"><button class="cal-nb" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nb" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>`
+  const stmap={pending:'st-p',approved:'st-a',rejected:'st-r',archived:'st-n'}
+  const stlbl={pending:'Pending',approved:'Approved',rejected:'Changes',archived:'Archived'}
+
+  if(isMobCal){
+    // Mobile: full calendar grid, tap a day to see posts
+    const gridHtml=cells.map(({d,cur})=>{
+      const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
+      const dp=pfd(d,cur)
+      const hasPosts=dp.length>0
+      const firstImg=hasPosts?(dp[0].media||[]).find(m=>m.type==='image'):null
+      return`<div class="cal-day${!cur?' other':''}${isT?' today':''}" style="${hasPosts?'border-color:var(--pbrd);cursor:pointer;':''}" onclick="${hasPosts?`showCalDaySheet(${y},${m},${d})`:''}">
+        <div class="cal-dn">${d}</div>
+        ${firstImg?`<div style="margin:2px -1px 0;height:32px;overflow:hidden;border-radius:0 0 4px 4px"><img src="${firstImg.url}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'" /></div>`:hasPosts?`<div style="display:flex;flex-wrap:wrap;gap:1px;margin-top:2px">${dp.map(p=>`<div style="width:6px;height:6px;border-radius:50%;background:${{pending:'var(--a)',approved:'var(--g)',rejected:'var(--r)'}[p.status]||'var(--t3)'}"></div>`).join('')}</div>`:''}
+      </div>`
+    }).join('')
+    cw.innerHTML=`<div style="padding:12px">${navHtml}<div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${gridHtml}</div></div>`
+  } else {
+    // Desktop: standard compact grid
+    cw.innerHTML=navHtml+`<div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;const dp=pfd(d,cur);return`<div class="cal-day${!cur?' other':''}${isT?' today':''}"><div class="cal-dn">${d}</div>${dp.map(p=>`<div class="cal-ev ce-${p.status[0]}" onclick="pickPost('${p.id}')">${(p.platforms||[]).map(x=>({instagram:'IG',facebook:'FB',linkedin:'LI'}[x]||'').slice(0,2)).join(' ')} ${p.caption.slice(0,10)}…</div>`).join('')}</div>`}).join('')}</div>`
+  }
+}
+
+function showCalDaySheet(y,m,d){
+  const dp=posts.filter(p=>{
+    if(!p.scheduled_date)return false
+    try{const pd=new Date(p.scheduled_date);return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}
+  })
+  if(!dp.length)return
+  if(dp.length===1){pickPost(dp[0].id);return}
+  // Multiple posts - show sheet
+  const date=new Date(y,m,d)
+  const dateStr=date.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})
+  const stmap={pending:'st-p',approved:'st-a',rejected:'st-r',archived:'st-n'}
+  const stlbl={pending:'Pending',approved:'Approved',rejected:'Changes',archived:'Archived'}
+  const el=document.createElement('div')
+  el.className='cal-day-sheet'
+  el.id='cal-day-sheet'
+  el.innerHTML=`<div class="cal-day-sheet-bg" onclick="document.getElementById('cal-day-sheet')?.remove()"></div>
+    <div class="cal-day-sheet-card">
+      <div class="cal-day-sheet-pill"></div>
+      <div class="cal-day-sheet-title">${dateStr}</div>
+      ${dp.map(p=>{
+        const firstImg=(p.media||[]).find(m=>m.type==='image')
+        return`<div class="cal-day-sheet-post" onclick="document.getElementById('cal-day-sheet')?.remove();pickPost('${p.id}')">
+          <div class="cal-sheet-thumb">${firstImg?`<img src="${firstImg.url}" onerror="this.style.display='none'" />`:'<div style="width:100%;height:100%;background:var(--c4)"></div>'}</div>
+          <div class="cal-sheet-body">
+            <div class="cal-sheet-plat">${(p.platforms||[]).map(x=>({instagram:'Instagram',facebook:'Facebook',linkedin:'LinkedIn'}[x]||x)).join(', ')||'—'}</div>
+            <div class="cal-sheet-cap">${p.caption}</div>
+            <div class="cal-sheet-meta">${p.scheduled_time||''} <span class="${stmap[p.status]||'st-n'}" style="display:inline-flex;align-items:center;height:16px;padding:0 7px;border-radius:8px;font-size:10px;font-weight:500;margin-left:4px">${stlbl[p.status]||''}</span></div>
+          </div>
+          <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--t3)" stroke-width="1.8"><polyline points="1,1 7,7 1,13"/></svg>
+        </div>`
+      }).join('')}
+    </div>`
+  document.body.appendChild(el)
 }
 
 /* ── PREVIEWS ── */
