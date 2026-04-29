@@ -647,15 +647,31 @@ function renderAuth(t){
 async function doAuth(){
   const email=document.getElementById('a-email')?.value.trim(),pass=document.getElementById('a-pass')?.value
   if(!email||!pass){document.getElementById('a-err').innerHTML='<div class="auth-err">Fill in all fields.</div>';return}
-  const btn=document.getElementById('a-btn');btn.disabled=true;btn.textContent='…'
-  let error
-  if(aTab==='login'){({error}=await SB.auth.signInWithPassword({email,password:pass}))}
-  else{
+  const btn=document.getElementById('a-btn');btn.disabled=true;btn.textContent='Signing in…'
+  if(aTab==='login'){
+    const{data,error}=await SB.auth.signInWithPassword({email,password:pass})
+    if(error){
+      let msg=error.message
+      if(msg.toLowerCase().includes('invalid')||msg.toLowerCase().includes('credentials'))msg='Incorrect email or password.'
+      document.getElementById('a-err').innerHTML=`<div class="auth-err">${msg}</div>`
+      btn.disabled=false;btn.textContent='Sign in'
+    }else if(data&&data.user){
+      await doLogin(data.user)
+    }
+  }else{
     const name=document.getElementById('a-name')?.value.trim()||email.split('@')[0]
-    ;({error}=await SB.auth.signUp({email,password:pass,options:{data:{name,role:aRole}}}))
-    if(!error){toast('Account created! Check email then sign in.');renderAuth('login');return}
+    const{data,error}=await SB.auth.signUp({email,password:pass,options:{data:{name,role:aRole}}})
+    if(error){
+      document.getElementById('a-err').innerHTML=`<div class="auth-err">${error.message}</div>`
+      btn.disabled=false;btn.textContent='Create account'
+    }else if(data&&data.session&&data.session.user){
+      await doLogin(data.session.user)
+    }else{
+      document.getElementById('a-err').innerHTML='<div style="color:#34c759;background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:10px;padding:10px;font-size:13px;text-align:center">Account created! Check your email then sign in.</div>'
+      btn.disabled=false;btn.textContent='Sign in'
+      renderAuth('login')
+    }
   }
-  if(error){document.getElementById('a-err').innerHTML=`<div class="auth-err">${error.message}</div>`;btn.disabled=false;btn.textContent=aTab==='login'?'Sign in':'Create account'}
 }
 
 /* ── APP SHELL ── */
