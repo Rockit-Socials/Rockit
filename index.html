@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0046)file:///C:/Users/gregb/Downloads/index_46.html -->
+<!-- saved from url=(0046)file:///C:/Users/gregb/Downloads/index_47.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -607,18 +607,13 @@ async function doLogin(u){
   if(!u||!u.email){showAuth();return}
   const m=u.user_metadata||{}
   me={id:u.id,email:u.email,name:m.name||u.email.split('@')[0],role:m.role||'creator'}
-  // Load posts with 8 second timeout so spinner never hangs forever
-  try{
-    await Promise.race([
-      loadPosts(),
-      new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),8000))
-    ])
-  }catch(e){console.log('loadPosts:',e.message)}
-  // Start realtime in background — don't await it
-  try{startRT()}catch(e){}
+  // Show the app immediately - don't wait for posts
   hideLoading()
   document.getElementById('auth-screen').style.display='none'
   setupUserUI()
+  // Load posts after showing app
+  try{ await loadPosts() }catch(e){ console.log('loadPosts:',e.message) }
+  try{ startRT() }catch(e){}
   refreshAll()
 }
 
@@ -654,6 +649,14 @@ function switchAuthTab(t){
   // Focus email
   setTimeout(()=>document.getElementById('a-email')?.focus(),50)
 }
+function togglePwd(){
+  const inp=document.getElementById('a-pass')
+  const btn=document.getElementById('pwd-toggle')
+  if(!inp)return
+  if(inp.type==='password'){inp.type='text';if(btn)btn.textContent='Hide'}
+  else{inp.type='password';if(btn)btn.textContent='Show'}
+}
+
 function setRole(r){
   aRole=r
   document.getElementById('role-creator').classList.toggle('on',r==='creator')
@@ -690,7 +693,15 @@ async function doAuth(){
     if(aTab==='login'){
       const res=await SB.auth.signInWithPassword({email:email,password:pass})
       if(res.error){
-        if(errEl)errEl.innerHTML='<div class="auth-err">'+res.error.message+'</div>'
+        let msg=res.error.message
+        if(msg.includes('Invalid login')||msg.includes('invalid')||msg.includes('credentials')){
+          msg='Incorrect email or password. Please check and try again.'
+        } else if(msg.includes('Email not confirmed')){
+          msg='Please confirm your email first — check your inbox for a confirmation link.'
+        } else if(msg.includes('Too many')){
+          msg='Too many attempts. Please wait a few minutes and try again.'
+        }
+        if(errEl)errEl.innerHTML='<div class="auth-err">'+msg+'</div>'
         if(btn){btn.disabled=false;btn.textContent='Sign in'}
         return
       }
