@@ -110,7 +110,7 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .signout:hover{color:var(--r);background:var(--rdim)}
 
 /* Main panel */
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--c0)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--c0);position:relative}
 .topbar{height:48px;padding:0 16px;background:rgba(0,0,0,.8);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:5}
 .topbar-menu{display:none;background:none;border:none;cursor:pointer;color:var(--t2);padding:5px;border-radius:7px}
 .tb-badges{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden}
@@ -133,6 +133,7 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .tbtn-del{color:var(--r)}
 .tbtn-del:hover{background:var(--rdim)}
 
+#main-content{position:absolute;top:48px;left:0;right:0;bottom:0;overflow-y:auto}
 .meta-strip{padding:7px 16px;border-bottom:1px solid var(--sep);display:flex;gap:14px;flex-wrap:wrap;background:var(--c1);flex-shrink:0}
 .mi{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:4px}
 .mi strong{color:var(--t1);font-weight:500}
@@ -486,8 +487,7 @@ async function boot(){
     else renderAuth()
   }catch(e){clearTimeout(_bt);renderAuth()}
   SB.auth.onAuthStateChange(async(ev,s)=>{
-    if(ev==='SIGNED_IN'&&s?.user)await doLogin(s.user)
-    else if(ev==='SIGNED_OUT'){me=null;posts=[];sel=null;renderAuth()}
+    if(ev==='SIGNED_OUT'){me=null;posts=[];sel=null;renderAuth()}
   })
 }
 
@@ -974,7 +974,17 @@ function renderCal(containerId){
   for(let i=fd-1;i>=0;i--)cells.push({d:dip-i,cur:false})
   for(let d=1;d<=dim;d++)cells.push({d,cur:true})
   while(cells.length%7!==0)cells.push({d:cells.length-fd-dim+1,cur:false})
-  const pfd=(d,cur)=>{if(!cur)return[];return posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{var s=p.scheduled_date,pd=new Date(s);if(isNaN(pd))pd=new Date(s.replace(/-/g,'/'));return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch(e){return false}})}
+  function parseSDate(s){
+    if(!s)return null;
+    // YYYY-MM-DD → parse as LOCAL date (not UTC) to avoid timezone shift
+    var iso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(iso)return new Date(+iso[1],+iso[2]-1,+iso[3]);
+    // DD.MM.YYYY or DD/MM/YYYY
+    var p=s.split(/[\.\/-]/);
+    if(p.length===3){var a=+p[0],b=+p[1],c=+p[2];if(c>1000)return new Date(c,b-1,a);}
+    return null;
+  }
+  const pfd=(d,cur)=>{if(!cur)return[];return posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{var pd=parseSDate(p.scheduled_date);return pd&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch(e){return false}})}
   cw.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>
   <div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{
     const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
