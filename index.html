@@ -90,6 +90,11 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .fpill{padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:500;cursor:pointer;border:1px solid var(--sep);color:var(--t3);background:transparent;white-space:nowrap;font-family:var(--font);transition:all .14s}
 .fpill.on{background:var(--pdim);color:var(--p2);border-color:var(--pbrd)}
 .post-list{flex:1;overflow-y:auto;padding:6px}
+.sb-card{position:relative}
+.sb-card.drag-over{border-top:2px solid var(--p)}
+.sb-card.dragging{opacity:.4}
+.drag-handle{position:absolute;left:4px;top:50%;transform:translateY(-50%);color:var(--t4);cursor:grab;font-size:14px;padding:4px;line-height:1;user-select:none;display:none}
+.sb-card:hover .drag-handle{display:block}
 .pcard{padding:10px 12px;border-radius:11px;cursor:pointer;border:1px solid transparent;margin-bottom:2px;transition:all .12s}
 .pcard:hover{background:var(--c3)}
 .pcard.on{background:var(--c3);border-color:var(--sep2)}
@@ -459,7 +464,7 @@ const AR={
 const DAR={instagram:'1/1',facebook:'1.91/1',linkedin:'1.91/1'}
 
 let SB=null,me=null,posts=[],sel=null,filter='all',carIdx={},imgPos={},editMode=false
-let dTab='posts',calM=new Date(),editId=null,mMedia=[],mPlats=['instagram'],aTab='login',aRole='creator'
+let dTab='posts',sbDragIdx=null,calM=new Date(),editId=null,mMedia=[],mPlats=['instagram'],mAspectRatios={},aTab='login',aRole='creator'
 let dragIdx=null,mouseD=null,touchD=null
 let mobView='list' // mobile: list | detail | calendar
 
@@ -755,6 +760,19 @@ function renderApp(){
   </div>
 </div>`
   refreshAll()
+}
+
+function sbDropReorder(toIdx){
+  if(sbDragIdx===null||sbDragIdx===toIdx){sbDragIdx=null;return}
+  // Get the currently displayed filtered list
+  var list=posts.filter(p=>filter==='all'?p.status!=='archived':p.status===filter)
+  var moved=list.splice(sbDragIdx,1)[0]
+  list.splice(toIdx,0,moved)
+  // Rebuild full posts array preserving non-displayed posts
+  var others=posts.filter(p=>!(filter==='all'?p.status!=='archived':p.status===filter))
+  posts=list.concat(others)
+  sbDragIdx=null
+  refreshSB()
 }
 
 function getStats(){
@@ -1119,12 +1137,14 @@ function openModal(eid){
   const ex=eid?posts.find(p=>p.id===eid):null
   mMedia=ex?JSON.parse(JSON.stringify(ex.media||[])):[]
   mPlats=ex?[...(ex.platforms||['instagram'])]:['instagram']
+  mAspectRatios=ex?JSON.parse(JSON.stringify(ex.aspect_ratios||{})):{}
   const bg=document.createElement('div');bg.className='modal-backdrop';bg.id='m-bg'
   bg.innerHTML=`<div class="modal-sheet">
     <div class="modal-pill"></div>
     <div class="modal-hd"><span class="modal-ttl">${ex?'Edit post':'New post'}</span><button class="modal-close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
       <div><div class="f-lbl">Platforms</div><div class="plat-row"><span class="pp${mPlats.includes('instagram')?' on':''}" data-p="instagram" onclick="togglePP(this)">Instagram</span><span class="pp${mPlats.includes('facebook')?' on':''}" data-p="facebook" onclick="togglePP(this)">Facebook</span><span class="pp${mPlats.includes('linkedin')?' on':''}" data-p="linkedin" onclick="togglePP(this)">LinkedIn</span></div></div>
+      <div id="m-ar-pickers"></div>
       <div class="f2">
         <div><div class="f-lbl">Account name</div><input class="f-in" type="text" id="m-acc" value="${ex?.account||'Rockit Events'}" /></div>
         <div><div class="f-lbl">LinkedIn headline</div><input class="f-in" type="text" id="m-hl" value="${ex?.headline||'Event Production'}" /></div>
@@ -1152,9 +1172,31 @@ function openModal(eid){
     </div>
   </div>`
   document.body.appendChild(bg)
-  renderMML();setTimeout(()=>{updateCC();document.getElementById('m-cap')?.focus()},60)
+  renderMML();setTimeout(()=>{updateCC();updateARPickers();document.getElementById('m-cap')?.focus()},60)
 }
 
+function updateARPickers(){
+  var el=document.getElementById('m-ar-pickers');if(!el)return
+  if(!mPlats.length){el.innerHTML='';return}
+  var html='<div class="f-lbl" style="margin-top:8px">Aspect ratio</div><div style="display:flex;gap:12px;flex-wrap:wrap">'
+  mPlats.forEach(function(plat){
+    var opts=AR[plat]||[]
+    var cur=mAspectRatios[plat]||DAR[plat]||'1/1'
+    html+='<div><div style="font-size:11px;color:var(--t3);margin-bottom:3px;text-transform:capitalize">'+plat+'</div><div class="ar-row" style="justify-content:flex-start">'
+    opts.forEach(function(o){
+      html+='<button class="ar-chip'+(cur===o.v?' on':'')+'" data-plat="'+plat+'" data-ar="'+o.v+'">'+o.l+'</button>'
+    })
+    html+='</div></div>'
+  })
+  html+='</div>'
+  el.innerHTML=html
+  el.querySelectorAll('.ar-chip').forEach(function(btn){
+    btn.addEventListener('click',function(){setMAR(this.dataset.plat,this.dataset.ar)})
+  })
+}
+function setMAR(plat,ar){
+  mAspectRatios[plat]=ar;updateARPickers()
+}
 function updateCC(){
   const cap=document.getElementById('m-cap')?.value||'',el=document.getElementById('cc');if(!el)return
   const len=cap.length,lim=Math.min(...mPlats.map(p=>CHAR[p]||99999))
@@ -1221,6 +1263,7 @@ function togglePP(el){
   const p=el.dataset.p
   if(el.classList.contains('on')){if(mPlats.length===1)return;el.classList.remove('on');mPlats=mPlats.filter(x=>x!==p)}
   else{el.classList.add('on');mPlats.push(p)}
+  updateARPickers()
   setTimeout(updateCC,10)
 }
 
@@ -1243,7 +1286,7 @@ async function submitPost(){
     err=await savePost(editId,{...base,version:nv})
     if(!err){await logActivity(editId,'Updated to v'+nv+' — reset to pending.',true);toast('Saved as v'+nv)}
   } else {
-    err=await createPost({...base,version:1,aspect_ratios:{}})
+    err=await createPost({...base,version:1,aspect_ratios:Object.assign({},mAspectRatios)})
     if(!err)toast('Submitted for approval ✓')
   }
   console.log('Save result:', err)
