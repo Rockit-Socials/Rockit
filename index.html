@@ -181,10 +181,6 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .cal-dn{font-size:9px;color:var(--t3);margin-bottom:2px}
 .cal-day.today .cal-dn{color:var(--p2)}
 .cal-ev{font-size:9px;border-radius:3px;padding:1px 4px;margin-bottom:1px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
-.cal-dots{display:flex;gap:2px;flex-wrap:wrap;margin-top:2px;justify-content:center}
-.cal-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
-.cd-p{background:var(--a)}.cd-a{background:var(--g)}.cd-r{background:var(--r)}
-.cal-day.has-posts{border-color:rgba(125,112,245,.4)}
 .ce-p{background:var(--adim);color:var(--a)}.ce-a{background:var(--gdim);color:var(--g)}.ce-r{background:var(--rdim);color:var(--r)}
 
 /* ══════════════════════════════════
@@ -622,33 +618,20 @@ function renderAuth(t){
 }
 
 async function doAuth(){
-  var email=(document.getElementById('a-email')?.value||'').trim()
-  var pass=document.getElementById('a-pass')?.value||''
-  if(!email||!pass){document.getElementById('a-err').innerHTML='<div class="auth-err">Please enter your email and password.</div>';return}
+  var email=(document.getElementById('a-email')?.value||'').trim(),pass=document.getElementById('a-pass')?.value||''
+  if(!email||!pass){document.getElementById('a-err').innerHTML='<div class="auth-err">Please enter email and password.</div>';return}
   var btn=document.getElementById('a-btn');btn.disabled=true;btn.textContent='Signing in…'
   document.getElementById('a-err').innerHTML=''
   if(aTab==='login'){
     var r=await SB.auth.signInWithPassword({email:email,password:pass})
-    if(r.error){
-      var msg=r.error.message
-      if(msg.toLowerCase().indexOf('invalid')>-1)msg='Incorrect email or password.'
-      document.getElementById('a-err').innerHTML='<div class="auth-err">'+msg+'</div>'
-      btn.disabled=false;btn.textContent='Sign in'
-    }else if(r.data&&r.data.user){
-      await doLogin(r.data.user)
-    }
+    if(r.error){var msg=r.error.message;if(msg.toLowerCase().indexOf('invalid')>-1)msg='Incorrect email or password.';document.getElementById('a-err').innerHTML='<div class="auth-err">'+msg+'</div>';btn.disabled=false;btn.textContent='Sign in'}
+    else if(r.data&&r.data.user){await doLogin(r.data.user)}
   }else{
     var name=(document.getElementById('a-name')?.value||'').trim()||email.split('@')[0]
     var r2=await SB.auth.signUp({email:email,password:pass,options:{data:{name:name,role:aRole}}})
-    if(r2.error){
-      document.getElementById('a-err').innerHTML='<div class="auth-err">'+r2.error.message+'</div>'
-      btn.disabled=false;btn.textContent='Create account'
-    }else if(r2.data&&r2.data.session&&r2.data.session.user){
-      await doLogin(r2.data.session.user)
-    }else{
-      document.getElementById('a-err').innerHTML='<div style="color:#34c759;background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:10px;padding:10px;font-size:13px;text-align:center">Account created! Check your email then sign in.</div>'
-      btn.disabled=false;btn.textContent='Sign in'
-    }
+    if(r2.error){document.getElementById('a-err').innerHTML='<div class="auth-err">'+r2.error.message+'</div>';btn.disabled=false;btn.textContent='Create account'}
+    else if(r2.data&&r2.data.session&&r2.data.session.user){await doLogin(r2.data.session.user)}
+    else{document.getElementById('a-err').innerHTML='<div style="color:#34c759;background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:10px;padding:10px;font-size:13px;text-align:center">Account created! Check your email then sign in.</div>';btn.disabled=false;btn.textContent='Sign in'}
   }
 }
 
@@ -992,27 +975,13 @@ function renderCal(containerId){
   for(let i=fd-1;i>=0;i--)cells.push({d:dip-i,cur:false})
   for(let d=1;d<=dim;d++)cells.push({d,cur:true})
   while(cells.length%7!==0)cells.push({d:cells.length-fd-dim+1,cur:false})
-  const parseSD=(s)=>{if(!s)return null;try{let d=new Date(s);if(!isNaN(d))return d;d=new Date(s.replace(/-/g,'/'));if(!isNaN(d))return d;return null}catch{return null}}
-  const pfd=(d,cur)=>!cur?[]:posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=parseSD(p.scheduled_date);return pd&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
+  const pfd=(d,cur)=>{if(!cur)return[];return posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{var s=p.scheduled_date,pd=new Date(s);if(isNaN(pd))pd=new Date(s.replace(/-/g,'/'));return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch(e){return false}})}
   cw.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>
   <div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{
     const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
     const dp=pfd(d,cur)
-    return`<div class="cal-day${!cur?' other':''}${isT?' today':''}${dp.length?' has-posts':''}" ${dp.length===1?`onclick="pickPost('${dp[0].id}')"`:dp.length>1?`onclick="calDaySheet(${y},${m},${d})"`:''} style="${dp.length?'cursor:pointer':''}"><div class="cal-dn">${d}</div>${dp.length?`<div class="cal-dots">${dp.map(p=>`<div class="cal-dot cd-${p.status[0]}"></div>`).join('')}</div>`:''}</div>`
+    return`<div class="cal-day${!cur?' other':''}${isT?' today':''}"><div class="cal-dn">${d}</div>${dp.map(p=>`<div class="cal-ev ce-${p.status[0]}" onclick="pickPost('${p.id}')">${(p.platforms||[]).map(x=>({instagram:'IG',facebook:'FB',linkedin:'LI'}[x]||'').slice(0,2)).join(' ')} ${p.caption.slice(0,10)}…</div>`).join('')}</div>`
   }).join('')}</div>`
-}
-
-function calDaySheet(y,m,d){
-  document.getElementById('cal-sheet')?.remove()
-  const dp=posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=new Date(p.scheduled_date);return pd&&!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
-  if(!dp.length)return
-  if(dp.length===1){pickPost(dp[0].id);return}
-  const date=new Date(y,m,d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})
-  const sheet=document.createElement('div')
-  sheet.id='cal-sheet'
-  sheet.style.cssText='position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;justify-content:flex-end'
-  sheet.innerHTML=`<div onclick="document.getElementById('cal-sheet').remove()" style="flex:1;background:rgba(0,0,0,.5)"></div><div style="background:var(--c2);border-radius:20px 20px 0 0;padding:16px;max-height:60vh;overflow-y:auto"><div style="width:36px;height:4px;background:var(--c4);border-radius:2px;margin:0 auto 14px"></div><div style="font-size:15px;font-weight:600;margin-bottom:12px">${date}</div>${dp.map(p=>`<div onclick="document.getElementById('cal-sheet').remove();pickPost('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="width:44px;height:44px;border-radius:8px;overflow:hidden;background:var(--c3);flex-shrink:0">${(p.media||[]).find(m=>m.type==='image')?`<img src="${(p.media||[]).find(m=>m.type==='image').url}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'<div style="width:100%;height:100%;background:var(--c4)"></div>'}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;margin-bottom:2px">${(p.platforms||[]).map(x=>({instagram:'Instagram',facebook:'Facebook',linkedin:'LinkedIn'}[x]||x)).join(', ')}</div><div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.caption}</div></div><span class="pip pip-${p.status}" style="flex-shrink:0"></span></div>`).join('')}</div>`
-  document.body.appendChild(sheet)
 }
 
 /* ── PREVIEWS ── */
@@ -1215,11 +1184,9 @@ async function handleFiles(files){
       const mb=(file.size/1024/1024).toFixed(1)
       if(isVid&&file.size>50*1024*1024){failed++;toast(`${file.name} is ${mb}MB — videos must be under 50MB. Use YouTube or Drive instead.`,5000);continue}
       sp(`Uploading ${file.name} (${mb}MB)…`)
-      const ext2=file.name.split('.').pop().toLowerCase()
-      const mimeMap={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',heic:'image/heic',heif:'image/heif',mp4:'video/mp4',mov:'video/quicktime',avi:'video/x-msvideo',webm:'video/webm',m4v:'video/mp4'}
-      const ct=file.type||mimeMap[ext2]||'application/octet-stream'
+      var _x=file.name.split('.').pop().toLowerCase(),_m={'jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png','gif':'image/gif','webp':'image/webp','heic':'image/heic','mp4':'video/mp4','mov':'video/quicktime','webm':'video/webm','m4v':'video/mp4'},_ct=file.type||_m[_x]||'application/octet-stream'
       const path=Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
-      const{data,error}=await SB.storage.from('post-media').upload(path,file,{cacheControl:'3600',upsert:true,contentType:ct})
+      const{data,error}=await SB.storage.from('post-media').upload(path,file,{cacheControl:'3600',upsert:true,contentType:_ct})
       if(error){failed++;sp('Upload failed: '+(error.message||JSON.stringify(error)),'var(--r)');alert('Upload failed: '+(error.message||JSON.stringify(error)));continue}
       const{data:ud}=SB.storage.from('post-media').getPublicUrl(path)
       if(!ud?.publicUrl){failed++;continue}
