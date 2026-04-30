@@ -110,7 +110,7 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .signout:hover{color:var(--r);background:var(--rdim)}
 
 /* Main panel */
-.main{flex:1;display:flex;flex-direction:column;background:var(--c0);min-height:0;height:0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--c0)}
 .topbar{height:48px;padding:0 16px;background:rgba(0,0,0,.8);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:5}
 .topbar-menu{display:none;background:none;border:none;cursor:pointer;color:var(--t2);padding:5px;border-radius:7px}
 .tb-badges{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden}
@@ -133,14 +133,13 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .tbtn-del{color:var(--r)}
 .tbtn-del:hover{background:var(--rdim)}
 
-#main-content{flex:1;overflow-y:auto;min-height:0}
 .meta-strip{padding:7px 16px;border-bottom:1px solid var(--sep);display:flex;gap:14px;flex-wrap:wrap;background:var(--c1);flex-shrink:0}
 .mi{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:4px}
 .mi strong{color:var(--t1);font-weight:500}
 .char-strip{padding:5px 16px;border-bottom:1px solid var(--sep);display:flex;gap:10px;flex-wrap:wrap;background:var(--c1);flex-shrink:0}
 .ci{font-size:11px;display:flex;align-items:center;gap:3px}
 .c-ok{color:var(--g)}.c-warn{color:var(--a)}.c-ov{color:var(--r)}
-.previews{padding:16px;display:flex;gap:16px;align-items:flex-start;justify-content:center;flex-wrap:wrap;flex-shrink:0}
+.previews{flex:1;overflow-y:auto;padding:16px;display:flex;gap:16px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
 .pvpanel{flex:1;min-width:280px;max-width:420px}
 .pvlabel{font-size:10px;color:var(--t3);text-align:center;margin-bottom:4px;letter-spacing:.07em;text-transform:uppercase}
 .ar-row{display:flex;gap:3px;justify-content:center;margin-bottom:6px;flex-wrap:wrap}
@@ -181,32 +180,6 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .cal-dn{font-size:9px;color:var(--t3);margin-bottom:2px}
 .cal-day.today .cal-dn{color:var(--p2)}
 .cal-ev{font-size:9px;border-radius:3px;padding:1px 4px;margin-bottom:1px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
-.mob-cal-post{margin:8px 0;border-radius:10px;overflow:hidden;border:1px solid var(--sep);cursor:pointer;background:var(--c2);transition:opacity .12s}
-.mob-cal-post:active{opacity:.7}
-.mob-cal-thumb{width:100%;height:120px;object-fit:cover;display:block;background:var(--c3)}
-.mob-cal-thumb-empty{width:100%;height:80px;background:var(--c3);display:flex;align-items:center;justify-content:center}
-.mob-cal-info{padding:8px 10px}
-.mob-cal-date{font-size:11px;color:var(--t3);margin-bottom:3px}
-.mob-cal-plat{font-size:13px;font-weight:600;margin-bottom:2px}
-.mob-cal-cap{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mob-cal-status{display:inline-flex;align-items:center;height:18px;padding:0 8px;border-radius:9px;font-size:10.5px;font-weight:500;margin-top:4px}
-.mob-cal-month{font-size:16px;font-weight:600;letter-spacing:-.2px;margin:14px 0 10px;color:var(--t1)}
-.mob-cal-day-header{font-size:12px;font-weight:500;color:var(--t3);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--sep)}
-/* Day posts sheet */
-.cal-day-sheet{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end}
-.cal-day-sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px)}
-.cal-day-sheet-card{position:relative;background:var(--c2);border-radius:20px 20px 0 0;padding:16px;max-height:70vh;overflow-y:auto;border-top:1px solid var(--sep)}
-.cal-day-sheet-pill{width:36px;height:4px;background:var(--c5);border-radius:2px;margin:0 auto 14px}
-.cal-day-sheet-title{font-size:16px;font-weight:600;margin-bottom:12px;letter-spacing:-.2px}
-.cal-day-sheet-post{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--sep);cursor:pointer}
-.cal-day-sheet-post:last-child{border-bottom:none}
-.cal-day-sheet-post:active{opacity:.6}
-.cal-sheet-thumb{width:52px;height:52px;border-radius:9px;overflow:hidden;flex-shrink:0;background:var(--c3)}
-.cal-sheet-thumb img{width:100%;height:100%;object-fit:cover}
-.cal-sheet-body{flex:1;min-width:0}
-.cal-sheet-plat{font-size:13px;font-weight:600;margin-bottom:2px}
-.cal-sheet-cap{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cal-sheet-meta{font-size:11px;color:var(--t3);margin-top:2px}
 .ce-p{background:var(--adim);color:var(--a)}.ce-a{background:var(--gdim);color:var(--g)}.ce-r{background:var(--rdim);color:var(--r)}
 
 /* ══════════════════════════════════
@@ -310,7 +283,7 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
   .mob-tab-icon-wrap{position:relative;display:inline-flex}
 
   /* ── MOBILE: CALENDAR TAB ── */
-  .mob-cal-view{position:fixed;inset:0;bottom:calc(var(--tab-h) + var(--safe-b));overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;background:var(--c0)}
+  .mob-cal-view{position:absolute;inset:0;bottom:calc(var(--tab-h) + var(--safe-b));overflow-y:auto;display:none;padding:12px}
   .mob-cal-view.show{display:block}
 
   /* ── HIDE desktop elements on mobile ── */
@@ -513,18 +486,17 @@ async function boot(){
     else renderAuth()
   }catch(e){clearTimeout(_bt);renderAuth()}
   SB.auth.onAuthStateChange(async(ev,s)=>{
-    if(ev==='SIGNED_OUT'){me=null;posts=[];sel=null;renderAuth()}
+    if(ev==='SIGNED_IN'&&s?.user)await doLogin(s.user)
+    else if(ev==='SIGNED_OUT'){me=null;posts=[];sel=null;renderAuth()}
   })
 }
 
 async function doLogin(u){
-  if(!u||!u.email){renderAuth();return}
   const m=u.user_metadata||{}
   me={id:u.id,email:u.email,name:m.name||u.email.split('@')[0],role:m.role||'creator'}
-  try{await loadPosts()}catch(e){console.log('loadPosts:',e)}
-  try{startRT()}catch(e){}
+  await loadPosts()
+  startRT()
   renderApp()
-  refreshAll()
 }
 
 function norm(p){return{...p,platforms:Array.isArray(p.platforms)?p.platforms:[],media:Array.isArray(p.media)?p.media:[],aspect_ratios:p.aspect_ratios||{},post_comments:(p.post_comments||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))}}
@@ -645,31 +617,32 @@ function renderAuth(t){
 }
 
 async function doAuth(){
-  const email=document.getElementById('a-email')?.value.trim(),pass=document.getElementById('a-pass')?.value
-  if(!email||!pass){document.getElementById('a-err').innerHTML='<div class="auth-err">Fill in all fields.</div>';return}
-  const btn=document.getElementById('a-btn');btn.disabled=true;btn.textContent='Signing in…'
+  var email=(document.getElementById('a-email')?.value||'').trim()
+  var pass=document.getElementById('a-pass')?.value||''
+  if(!email||!pass){document.getElementById('a-err').innerHTML='<div class="auth-err">Please enter your email and password.</div>';return}
+  var btn=document.getElementById('a-btn');btn.disabled=true;btn.textContent='Signing in…'
+  document.getElementById('a-err').innerHTML=''
   if(aTab==='login'){
-    const{data,error}=await SB.auth.signInWithPassword({email,password:pass})
-    if(error){
-      let msg=error.message
-      if(msg.toLowerCase().includes('invalid')||msg.toLowerCase().includes('credentials'))msg='Incorrect email or password.'
-      document.getElementById('a-err').innerHTML=`<div class="auth-err">${msg}</div>`
+    var r=await SB.auth.signInWithPassword({email:email,password:pass})
+    if(r.error){
+      var msg=r.error.message
+      if(msg.toLowerCase().indexOf('invalid')>-1)msg='Incorrect email or password.'
+      document.getElementById('a-err').innerHTML='<div class="auth-err">'+msg+'</div>'
       btn.disabled=false;btn.textContent='Sign in'
-    }else if(data&&data.user){
-      await doLogin(data.user)
+    }else if(r.data&&r.data.user){
+      await doLogin(r.data.user)
     }
   }else{
-    const name=document.getElementById('a-name')?.value.trim()||email.split('@')[0]
-    const{data,error}=await SB.auth.signUp({email,password:pass,options:{data:{name,role:aRole}}})
-    if(error){
-      document.getElementById('a-err').innerHTML=`<div class="auth-err">${error.message}</div>`
+    var name=(document.getElementById('a-name')?.value||'').trim()||email.split('@')[0]
+    var r2=await SB.auth.signUp({email:email,password:pass,options:{data:{name:name,role:aRole}}})
+    if(r2.error){
+      document.getElementById('a-err').innerHTML='<div class="auth-err">'+r2.error.message+'</div>'
       btn.disabled=false;btn.textContent='Create account'
-    }else if(data&&data.session&&data.session.user){
-      await doLogin(data.session.user)
+    }else if(r2.data&&r2.data.session&&r2.data.session.user){
+      await doLogin(r2.data.session.user)
     }else{
       document.getElementById('a-err').innerHTML='<div style="color:#34c759;background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:10px;padding:10px;font-size:13px;text-align:center">Account created! Check your email then sign in.</div>'
       btn.disabled=false;btn.textContent='Sign in'
-      renderAuth('login')
     }
   }
 }
@@ -1007,95 +980,20 @@ function refreshDesktopMain(){
 /* ── CALENDAR ── */
 function renderCal(containerId){
   const cw=document.getElementById(containerId);if(!cw)return
-  const isMobCal=containerId==='mob-cal'
   const y=calM.getFullYear(),m=calM.getMonth()
   const mn=calM.toLocaleString('default',{month:'long',year:'numeric'})
   const fd=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),dip=new Date(y,m,0).getDate()
-  const today=new Date()
-  // Build cells
-  const cells=[]
+  const today=new Date(),cells=[]
   for(let i=fd-1;i>=0;i--)cells.push({d:dip-i,cur:false})
   for(let d=1;d<=dim;d++)cells.push({d,cur:true})
   while(cells.length%7!==0)cells.push({d:cells.length-fd-dim+1,cur:false})
-  // Posts for a given day
-  const parseDate=(s)=>{
-    if(!s)return null
-    try{
-      // Try direct parse first (works for ISO dates)
-      let d=new Date(s)
-      if(!isNaN(d))return d
-      // Try adding year if missing
-      d=new Date(s+' '+new Date().getFullYear())
-      if(!isNaN(d))return d
-      return null
-    }catch{return null}
-  }
-  const pfd=(d,cur)=>{
-    if(!cur)return[]
-    return posts.filter(p=>{
-      if(!p.scheduled_date)return false
-      try{
-        const pd=parseDate(p.scheduled_date)
-        return pd&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d
-      }catch{return false}
-    })
-  }
-  const navHtml=`<div class="cal-nav"><button class="cal-nb" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nb" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>`
-  const stmap={pending:'st-p',approved:'st-a',rejected:'st-r',archived:'st-n'}
-  const stlbl={pending:'Pending',approved:'Approved',rejected:'Changes',archived:'Archived'}
-
-  if(isMobCal){
-    // Mobile: full calendar grid, tap a day to see posts
-    const gridHtml=cells.map(({d,cur})=>{
-      const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
-      const dp=pfd(d,cur)
-      const hasPosts=dp.length>0
-      const firstImg=hasPosts?(dp[0].media||[]).find(m=>m.type==='image'):null
-      return`<div class="cal-day${!cur?' other':''}${isT?' today':''}" style="${hasPosts?'border-color:var(--pbrd);cursor:pointer;':''}" onclick="${hasPosts?`showCalDaySheet(${y},${m},${d})`:''}">
-        <div class="cal-dn">${d}</div>
-        ${firstImg?`<div style="margin:2px -1px 0;height:32px;overflow:hidden;border-radius:0 0 4px 4px"><img src="${firstImg.url}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'" /></div>`:hasPosts?`<div style="display:flex;flex-wrap:wrap;gap:1px;margin-top:2px">${dp.map(p=>`<div style="width:6px;height:6px;border-radius:50%;background:${{pending:'var(--a)',approved:'var(--g)',rejected:'var(--r)'}[p.status]||'var(--t3)'}"></div>`).join('')}</div>`:''}
-      </div>`
-    }).join('')
-    cw.innerHTML=`<div style="padding:12px">${navHtml}<div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${gridHtml}</div></div>`
-  } else {
-    // Desktop: standard compact grid
-    cw.innerHTML=navHtml+`<div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;const dp=pfd(d,cur);return`<div class="cal-day${!cur?' other':''}${isT?' today':''}"><div class="cal-dn">${d}</div>${dp.map(p=>`<div class="cal-ev ce-${p.status[0]}" onclick="pickPost('${p.id}')">${(p.platforms||[]).map(x=>({instagram:'IG',facebook:'FB',linkedin:'LI'}[x]||'').slice(0,2)).join(' ')} ${p.caption.slice(0,10)}…</div>`).join('')}</div>`}).join('')}</div>`
-  }
-}
-
-function showCalDaySheet(y,m,d){
-  const dp=posts.filter(p=>{
-    if(!p.scheduled_date)return false
-    try{const pd=new Date(p.scheduled_date);return pd&&!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}
-  })
-  if(!dp.length)return
-  if(dp.length===1){pickPost(dp[0].id);return}
-  // Multiple posts - show sheet
-  const date=new Date(y,m,d)
-  const dateStr=date.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})
-  const stmap={pending:'st-p',approved:'st-a',rejected:'st-r',archived:'st-n'}
-  const stlbl={pending:'Pending',approved:'Approved',rejected:'Changes',archived:'Archived'}
-  const el=document.createElement('div')
-  el.className='cal-day-sheet'
-  el.id='cal-day-sheet'
-  el.innerHTML=`<div class="cal-day-sheet-bg" onclick="document.getElementById('cal-day-sheet')?.remove()"></div>
-    <div class="cal-day-sheet-card">
-      <div class="cal-day-sheet-pill"></div>
-      <div class="cal-day-sheet-title">${dateStr}</div>
-      ${dp.map(p=>{
-        const firstImg=(p.media||[]).find(m=>m.type==='image')
-        return`<div class="cal-day-sheet-post" onclick="document.getElementById('cal-day-sheet')?.remove();pickPost('${p.id}')">
-          <div class="cal-sheet-thumb">${firstImg?`<img src="${firstImg.url}" onerror="this.style.display='none'" />`:'<div style="width:100%;height:100%;background:var(--c4)"></div>'}</div>
-          <div class="cal-sheet-body">
-            <div class="cal-sheet-plat">${(p.platforms||[]).map(x=>({instagram:'Instagram',facebook:'Facebook',linkedin:'LinkedIn'}[x]||x)).join(', ')||'—'}</div>
-            <div class="cal-sheet-cap">${p.caption}</div>
-            <div class="cal-sheet-meta">${p.scheduled_time||''} <span class="${stmap[p.status]||'st-n'}" style="display:inline-flex;align-items:center;height:16px;padding:0 7px;border-radius:8px;font-size:10px;font-weight:500;margin-left:4px">${stlbl[p.status]||''}</span></div>
-          </div>
-          <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="var(--t3)" stroke-width="1.8"><polyline points="1,1 7,7 1,13"/></svg>
-        </div>`
-      }).join('')}
-    </div>`
-  document.body.appendChild(el)
+  const pfd=(d,cur)=>!cur?[]:posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=new Date(p.scheduled_date);return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
+  cw.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>
+  <div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{
+    const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
+    const dp=pfd(d,cur)
+    return`<div class="cal-day${!cur?' other':''}${isT?' today':''}"><div class="cal-dn">${d}</div>${dp.map(p=>`<div class="cal-ev ce-${p.status[0]}" onclick="pickPost('${p.id}')">${(p.platforms||[]).map(x=>({instagram:'IG',facebook:'FB',linkedin:'LI'}[x]||'').slice(0,2)).join(' ')} ${p.caption.slice(0,10)}…</div>`).join('')}</div>`
+  }).join('')}</div>`
 }
 
 /* ── PREVIEWS ── */
