@@ -110,7 +110,7 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .signout:hover{color:var(--r);background:var(--rdim)}
 
 /* Main panel */
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--c0)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--c0);min-height:0;height:0}
 .topbar{height:48px;padding:0 16px;background:rgba(0,0,0,.8);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:5}
 .topbar-menu{display:none;background:none;border:none;cursor:pointer;color:var(--t2);padding:5px;border-radius:7px}
 .tb-badges{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden}
@@ -133,6 +133,7 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .tbtn-del{color:var(--r)}
 .tbtn-del:hover{background:var(--rdim)}
 
+#main-content{flex:1;overflow-y:auto;min-height:0}
 .meta-strip{padding:7px 16px;border-bottom:1px solid var(--sep);display:flex;gap:14px;flex-wrap:wrap;background:var(--c1);flex-shrink:0}
 .mi{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:4px}
 .mi strong{color:var(--t1);font-weight:500}
@@ -180,6 +181,10 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .cal-dn{font-size:9px;color:var(--t3);margin-bottom:2px}
 .cal-day.today .cal-dn{color:var(--p2)}
 .cal-ev{font-size:9px;border-radius:3px;padding:1px 4px;margin-bottom:1px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
+.cal-dots{display:flex;gap:2px;flex-wrap:wrap;margin-top:2px;justify-content:center}
+.cal-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.cd-p{background:var(--a)}.cd-a{background:var(--g)}.cd-r{background:var(--r)}
+.cal-day.has-posts{border-color:rgba(125,112,245,.4)}
 .ce-p{background:var(--adim);color:var(--a)}.ce-a{background:var(--gdim);color:var(--g)}.ce-r{background:var(--rdim);color:var(--r)}
 
 /* ══════════════════════════════════
@@ -987,13 +992,27 @@ function renderCal(containerId){
   for(let i=fd-1;i>=0;i--)cells.push({d:dip-i,cur:false})
   for(let d=1;d<=dim;d++)cells.push({d,cur:true})
   while(cells.length%7!==0)cells.push({d:cells.length-fd-dim+1,cur:false})
-  const pfd=(d,cur)=>!cur?[]:posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=new Date(p.scheduled_date);return!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
+  const parseSD=(s)=>{if(!s)return null;try{let d=new Date(s);if(!isNaN(d))return d;d=new Date(s.replace(/-/g,'/'));if(!isNaN(d))return d;return null}catch{return null}}
+  const pfd=(d,cur)=>!cur?[]:posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=parseSD(p.scheduled_date);return pd&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
   cw.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()-1);renderCal('${containerId}')">‹</button><span class="cal-title">${mn}</span><button class="cal-nav-btn" onclick="calM.setMonth(calM.getMonth()+1);renderCal('${containerId}')">›</button></div>
   <div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells.map(({d,cur})=>{
     const isT=cur&&today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d
     const dp=pfd(d,cur)
-    return`<div class="cal-day${!cur?' other':''}${isT?' today':''}"><div class="cal-dn">${d}</div>${dp.map(p=>`<div class="cal-ev ce-${p.status[0]}" onclick="pickPost('${p.id}')">${(p.platforms||[]).map(x=>({instagram:'IG',facebook:'FB',linkedin:'LI'}[x]||'').slice(0,2)).join(' ')} ${p.caption.slice(0,10)}…</div>`).join('')}</div>`
+    return`<div class="cal-day${!cur?' other':''}${isT?' today':''}${dp.length?' has-posts':''}" ${dp.length===1?`onclick="pickPost('${dp[0].id}')"`:dp.length>1?`onclick="calDaySheet(${y},${m},${d})"`:''} style="${dp.length?'cursor:pointer':''}"><div class="cal-dn">${d}</div>${dp.length?`<div class="cal-dots">${dp.map(p=>`<div class="cal-dot cd-${p.status[0]}"></div>`).join('')}</div>`:''}</div>`
   }).join('')}</div>`
+}
+
+function calDaySheet(y,m,d){
+  document.getElementById('cal-sheet')?.remove()
+  const dp=posts.filter(p=>{if(!p.scheduled_date||p.status==='archived')return false;try{const pd=new Date(p.scheduled_date);return pd&&!isNaN(pd)&&pd.getFullYear()===y&&pd.getMonth()===m&&pd.getDate()===d}catch{return false}})
+  if(!dp.length)return
+  if(dp.length===1){pickPost(dp[0].id);return}
+  const date=new Date(y,m,d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})
+  const sheet=document.createElement('div')
+  sheet.id='cal-sheet'
+  sheet.style.cssText='position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;justify-content:flex-end'
+  sheet.innerHTML=`<div onclick="document.getElementById('cal-sheet').remove()" style="flex:1;background:rgba(0,0,0,.5)"></div><div style="background:var(--c2);border-radius:20px 20px 0 0;padding:16px;max-height:60vh;overflow-y:auto"><div style="width:36px;height:4px;background:var(--c4);border-radius:2px;margin:0 auto 14px"></div><div style="font-size:15px;font-weight:600;margin-bottom:12px">${date}</div>${dp.map(p=>`<div onclick="document.getElementById('cal-sheet').remove();pickPost('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="width:44px;height:44px;border-radius:8px;overflow:hidden;background:var(--c3);flex-shrink:0">${(p.media||[]).find(m=>m.type==='image')?`<img src="${(p.media||[]).find(m=>m.type==='image').url}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'<div style="width:100%;height:100%;background:var(--c4)"></div>'}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;margin-bottom:2px">${(p.platforms||[]).map(x=>({instagram:'Instagram',facebook:'Facebook',linkedin:'LinkedIn'}[x]||x)).join(', ')}</div><div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.caption}</div></div><span class="pip pip-${p.status}" style="flex-shrink:0"></span></div>`).join('')}</div>`
+  document.body.appendChild(sheet)
 }
 
 /* ── PREVIEWS ── */
@@ -1196,8 +1215,11 @@ async function handleFiles(files){
       const mb=(file.size/1024/1024).toFixed(1)
       if(isVid&&file.size>50*1024*1024){failed++;toast(`${file.name} is ${mb}MB — videos must be under 50MB. Use YouTube or Drive instead.`,5000);continue}
       sp(`Uploading ${file.name} (${mb}MB)…`)
+      const ext2=file.name.split('.').pop().toLowerCase()
+      const mimeMap={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',heic:'image/heic',heif:'image/heif',mp4:'video/mp4',mov:'video/quicktime',avi:'video/x-msvideo',webm:'video/webm',m4v:'video/mp4'}
+      const ct=file.type||mimeMap[ext2]||'application/octet-stream'
       const path=Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
-      const{data,error}=await SB.storage.from('post-media').upload(path,file,{cacheControl:'3600',upsert:true,contentType:file.type||'application/octet-stream'})
+      const{data,error}=await SB.storage.from('post-media').upload(path,file,{cacheControl:'3600',upsert:true,contentType:ct})
       if(error){failed++;sp('Upload failed: '+(error.message||JSON.stringify(error)),'var(--r)');alert('Upload failed: '+(error.message||JSON.stringify(error)));continue}
       const{data:ud}=SB.storage.from('post-media').getPublicUrl(path)
       if(!ud?.publicUrl){failed++;continue}
