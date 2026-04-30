@@ -319,6 +319,7 @@ body:not(.is-mobile):not(.is-desktop) .mob-cal-view{display:none}
 .car{position:relative;overflow:hidden;background:#000}
 .vid-shell{position:relative;width:100%;height:100%}
 .vid-shell video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
+.vid-cover{transition:opacity .2s}
 .vid-cover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.42);cursor:pointer;transition:background .15s}
 .vid-cover:hover{background:rgba(0,0,0,.22)}
 .vid-cover.gone{display:none}
@@ -1191,7 +1192,7 @@ async function handleFiles(files){
     try{
       const isVid=file.type.startsWith('video/')||/\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(file.name)
       const mb=(file.size/1024/1024).toFixed(1)
-      if(isVid&&file.size>50*1024*1024){failed++;toast(`${file.name} is ${mb}MB — videos must be under 50MB. Use YouTube or Drive instead.`,5000);continue}
+      if(isVid&&file.size>200*1024*1024){failed++;toast(`${file.name} is ${mb}MB — videos must be under 200MB.`,5000);continue}
       sp(`Uploading ${file.name} (${mb}MB)…`)
       var _x=file.name.split('.').pop().toLowerCase(),_m={'jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png','gif':'image/gif','webp':'image/webp','heic':'image/heic','mp4':'video/mp4','mov':'video/quicktime','webm':'video/webm','m4v':'video/mp4'},_ct=file.type||_m[_x]||'application/octet-stream'
       const path=Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
@@ -1207,6 +1208,13 @@ async function handleFiles(files){
   renderMML()
 }
 
+function playVid(id){
+  var v=document.getElementById(id),ov=document.getElementById('ov_'+id)
+  if(!v)return
+  if(v.paused){v.play();if(ov)ov.style.opacity='0'}
+  else{v.pause();if(ov)ov.style.opacity='1'}
+  v.onended=function(){if(ov)ov.style.opacity='1'}
+}
 function closeModal(){editMode=false;document.getElementById('m-bg')?.remove()}
 
 function togglePP(el){
