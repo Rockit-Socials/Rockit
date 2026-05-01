@@ -393,7 +393,7 @@ body:not(.is-mobile):not(.is-desktop) .mob-cal-view{display:none}
 
 /* ══ MODAL ══ */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:flex-end;justify-content:center;z-index:100;backdrop-filter:blur(12px)}
-@media(min-width:600px){.modal-backdrop{align-items:center;padding:20px}}
+@media(min-width:600px){.modal-backdrop{align-items:center;padding:20px}.modal-sheet{max-width:860px;border-radius:20px}}
 .modal-sheet{background:var(--c2);border-radius:20px 20px 0 0;width:100%;max-width:540px;max-height:94dvh;overflow-y:auto;border:1px solid var(--sep);border-bottom:none}
 @media(min-width:600px){.modal-sheet{border-radius:20px;border-bottom:1px solid var(--sep)}}
 .modal-pill{width:36px;height:4px;background:var(--c5);border-radius:2px;margin:10px auto 0}
@@ -1168,11 +1168,15 @@ function openModal(eid){
         <div><div class="f-lbl">Approval deadline</div><input class="f-in" type="text" id="m-dl" value="${ex?.approval_deadline||''}" placeholder="Apr 18, 2026" /></div>
         <div><div class="f-lbl">Assign to</div><input class="f-in" type="text" id="m-assign" value="${ex?.assigned_to||''}" placeholder="Team member…" /></div>
       </div>
+      <div id="m-prev-wrap" style="display:none">
+        <div class="f-lbl" style="margin-top:4px">Preview <span style="font-size:11px;color:var(--t3);font-weight:400">(drag images to reposition, scroll to zoom)</span></div>
+        <div id="m-prev-area" style="display:flex;gap:12px;flex-wrap:wrap;padding:4px 0"></div>
+      </div>
       <button class="submit-btn" id="m-sub" onclick="submitPost()">${ex?'Save changes':'Submit for approval'}</button>
     </div>
   </div>`
   document.body.appendChild(bg)
-  renderMML();setTimeout(()=>{updateCC();updateARPickers();document.getElementById('m-cap')?.focus()},60)
+  renderMML();setTimeout(()=>{updateCC();updateARPickers();refreshModalPreview();document.getElementById('m-cap')?.focus()},60)
 }
 
 function updateARPickers(){
@@ -1195,12 +1199,39 @@ function updateARPickers(){
   })
 }
 function setMAR(plat,ar){
-  mAspectRatios[plat]=ar;updateARPickers()
+  mAspectRatios[plat]=ar;updateARPickers();refreshModalPreview()
+}
+
+function refreshModalPreview(){
+  var wrap=document.getElementById('m-prev-wrap')
+  var area=document.getElementById('m-prev-area')
+  if(!wrap||!area)return
+  if(!mMedia.length){wrap.style.display='none';return}
+  wrap.style.display='block'
+  // Build a fake post object for renderPrev
+  var fakePost={
+    id:'modal-prev',
+    platforms:mPlats,
+    media:mMedia,
+    caption:document.getElementById('m-cap')?.value||'',
+    account:document.getElementById('m-acc')?.value||'Rockit Events',
+    headline:document.getElementById('m-hl')?.value||'',
+    status:'pending',
+    aspect_ratios:Object.assign({},mAspectRatios),
+    post_comments:[]
+  }
+  area.innerHTML=mPlats.map(function(plat){return renderPrev(plat,fakePost)}).join('')
+  // Re-init images after render
+  area.querySelectorAll('img[id^="img_"]').forEach(function(img){
+    if(img.complete)initImg(img.id.replace('img_',''))
+    else img.onload=function(){initImg(img.id.replace('img_',''))}
+  })
 }
 function updateCC(){
   const cap=document.getElementById('m-cap')?.value||'',el=document.getElementById('cc');if(!el)return
   const len=cap.length,lim=Math.min(...mPlats.map(p=>CHAR[p]||99999))
   el.textContent=`${len} / ${lim} characters`;el.className='char-hint'+(len>lim?' over':len>lim*.9?' warn':'')
+  refreshModalPreview()
 }
 
 function renderMML(){
