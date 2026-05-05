@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v202605051500 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1397,7 +1398,7 @@ async function submitPost(){
   let err
   if(editId){
     const ex=posts.find(p=>p.id===editId),nv=(ex?.version||1)+1
-    err=await savePost(editId,{...base,version:nv})
+    err=await savePost(editId,{...base,version:nv,aspect_ratios:Object.assign({},mAspectRatios)})
     if(!err){await logActivity(editId,'Updated to v'+nv+' — reset to pending.',true);toast('Saved as v'+nv)}
   } else {
     err=await createPost({...base,version:1,aspect_ratios:Object.assign({},mAspectRatios)})
