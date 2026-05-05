@@ -153,6 +153,35 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .ar-chip.on{background:var(--pdim);color:var(--p2);border-color:var(--pbrd)}
 .pv-frame{border:1px solid rgba(255,255,255,.1);border-radius:11px;overflow:hidden}
 .log-area{padding:10px 16px;border-top:1px solid var(--sep);background:var(--c1);flex-shrink:0}
+.tbtn-app.voted{background:rgba(52,199,89,.12)!important;color:var(--g)!important;border:1px solid rgba(52,199,89,.3)!important}
+.apv-section{padding:12px 16px;border-top:1px solid var(--sep)}
+.apv-title{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.apv-list{display:flex;flex-direction:column;gap:6px}
+.apv-row{display:flex;align-items:center;gap:10px}
+.apv-info{flex:1;min-width:0}
+.apv-name{font-size:13px;font-weight:500}
+.apv-time{font-size:11px;color:var(--t3)}
+.apv-tick{color:var(--g);font-size:16px;font-weight:700}
+.ready-banner{margin:12px 16px;padding:14px 16px;background:rgba(52,199,89,.08);border:1px solid rgba(52,199,89,.25);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ready-icon{font-size:24px;flex-shrink:0}
+.ready-txt{flex:1;min-width:0}
+.ready-title{font-size:14px;font-weight:600;color:var(--g)}
+.ready-sub{font-size:12px;color:var(--t2);margin-top:2px}
+.ready-copy{background:var(--g);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap}
+.apv-section{padding:12px 16px;border-top:1px solid var(--sep)}
+.apv-title{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.apv-list{display:flex;flex-direction:column;gap:6px}
+.apv-row{display:flex;align-items:center;gap:10px}
+.apv-info{flex:1;min-width:0}
+.apv-name{font-size:13px;font-weight:500}
+.apv-time{font-size:11px;color:var(--t3)}
+.apv-tick{color:var(--g);font-size:16px;font-weight:700}
+.ready-banner{margin:12px 16px;padding:14px 16px;background:rgba(52,199,89,.08);border:1px solid rgba(52,199,89,.25);border-radius:12px;display:flex;align-items:center;gap:12px}
+.ready-icon{font-size:24px;flex-shrink:0}
+.ready-txt{flex:1;min-width:0}
+.ready-title{font-size:14px;font-weight:600;color:var(--g)}
+.ready-sub{font-size:12px;color:var(--t2);margin-top:2px}
+.ready-copy{background:var(--g);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:var(--font)}
 .log-hdr{font-size:10px;font-weight:500;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
 .log-list{max-height:80px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
 .log-entry{padding:5px 9px;border-radius:8px;background:var(--c3);font-size:11px;line-height:1.5;display:flex;gap:5px;align-items:flex-start}
@@ -505,7 +534,7 @@ async function doLogin(u){
   renderApp()
 }
 
-function norm(p){return{...p,platforms:Array.isArray(p.platforms)?p.platforms:[],media:Array.isArray(p.media)?p.media:[],aspect_ratios:p.aspect_ratios||{},post_comments:(p.post_comments||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))}}
+function norm(p){return{...p,platforms:Array.isArray(p.platforms)?p.platforms:[],media:Array.isArray(p.media)?p.media:[],aspect_ratios:p.aspect_ratios||{},approvals:p.approvals||{},post_comments:(p.post_comments||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))}}
 
 async function loadPosts(){
   const{data,error}=await SB.from('posts').select('*, post_comments(*)').order('created_at',{ascending:false})
@@ -949,6 +978,24 @@ function refreshDetail(){
 }
 
 /* ── DESKTOP MAIN ── */
+function buildApprovalsHtml(p){
+  const list=Object.values(p.approvals||{})
+  if(!list.length)return ''
+  var rows=list.map(function(v){return '<div class="apv-row"><div class="user-av" style="width:28px;height:28px;font-size:10px;flex-shrink:0">'+ini(v.name)+'</div><div class="apv-info"><div class="apv-name">'+v.name+'</div><div class="apv-time">'+fmtTime(v.at)+'</div></div><div class="apv-tick">✓</div></div>'}).join('')
+  return '<div class="apv-section"><div class="apv-title">Approvals ('+list.length+' vote'+(list.length!==1?'s':'')+')</div><div class="apv-list">'+rows+'</div></div>'
+}
+
+function buildReadyBanner(p){
+  if(p.status!=='approved')return ''
+  var icon=String.fromCodePoint(0x1F389)
+  return '<div class="ready-banner"><div class="ready-icon">'+icon+'</div><div class="ready-txt"><div class="ready-title">Ready to post!</div><div class="ready-sub">All managers approved. Copy the caption below.</div></div><button class="ready-copy" onclick="copyCaptionToClipboard()">Copy caption</button></div>'
+}
+
+function copyCaptionToClipboard(){
+  if(!sel)return
+  navigator.clipboard.writeText(sel.caption).then(function(){toast('Caption copied!')})
+}
+
 function refreshDesktopMain(){
   const mc=document.getElementById('main-content');if(!mc)return
   if(!sel){
@@ -963,7 +1010,7 @@ function refreshDesktopMain(){
   const canAct=p.status==='pending',od=overdue(p)
   const tbb=document.getElementById('tb-badges'),tba=document.getElementById('tb-actions')
   if(tbb)tbb.innerHTML=`<span class="badge ${bmap[p.status]||'b-n'}">${blmap[p.status]||'Unknown'}</span><span class="badge b-v">v${p.version}</span>${od?'<span class="badge b-od">Overdue</span>':''}`
-  if(tba)tba.innerHTML=`<button class="tbtn tbtn-edit" onclick="openModal('${p.id}')">Edit</button><button class="tbtn" onclick="doArchive()">${p.status==='archived'?'Unarchive':'Archive'}</button><button class="tbtn tbtn-del" onclick="doDelete()">Delete</button>${canAct?`<button class="tbtn tbtn-rej" onclick="doReject()">Reject</button><button class="tbtn tbtn-app" onclick="doApprove()">Approve ✓</button>`:''}`
+  if(tba){const myVote=(p.approvals||{})[me?.id];tba.innerHTML=`<button class="tbtn tbtn-edit" onclick="openModal('${p.id}')">Edit</button><button class="tbtn" onclick="doArchive()">${p.status==='archived'?'Unarchive':'Archive'}</button><button class="tbtn tbtn-del" onclick="doDelete()">Delete</button>${canAct?`<button class="tbtn tbtn-rej" onclick="doReject()">Reject</button><button class="tbtn tbtn-app${myVote?' voted':''}" onclick="doApprove()" title="${myVote?'Approved on '+fmtTime(myVote.at):'Approve this post'}">${myVote?'Approved ✓':'Approve ✓'}</button>`:''}`}
   const capLen=(p.caption||'').length
   const charH=(p.platforms||[]).map(plat=>{const lim=CHAR[plat]||99999;const cls=capLen>lim?'c-ov':capLen>lim*.9?'c-warn':'c-ok';return`<span class="ci"><span class="${cls}">${capLen}/${lim}</span><span style="color:var(--t3)">${pl(plat)}</span></span>`}).join('')
   const acts=(p.post_comments||[]).map(c=>{const sys=c.is_system||c.author_name?.startsWith('⚙');return`<div class="log-entry"><span class="${sys?'log-sys':'log-who'}">${c.author_name}</span><span class="log-body">${c.body}</span><span class="log-ts">${ago(c.created_at)}</span></div>`}).join('')||'<div style="font-size:11px;color:var(--t3);padding:2px 4px">No activity yet.</div>'
@@ -976,6 +1023,8 @@ function refreshDesktopMain(){
     </div>
     ${charH?`<div class="char-strip">${charH}</div>`:''}
     <div class="previews" id="pv-area">${(p.platforms||[]).map(plat=>renderPrev(plat,p)).join('')}</div>
+    ${buildApprovalsHtml(p)}
+    ${buildReadyBanner(p)}
     <div class="log-area">
       <div class="log-hdr">Activity</div>
       <div class="log-list">${acts}</div>
@@ -1013,6 +1062,13 @@ function renderCal(containerId){
 }
 
 /* ── PREVIEWS ── */
+function fmtTime(iso){
+  if(!iso)return''
+  try{
+    const d=new Date(iso)
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+  }catch{return iso}
+}
 function getCI(pid,plat){return(carIdx[pid]||{})[plat]||0}
 function setCI(pid,plat,v){if(!carIdx[pid])carIdx[pid]={};carIdx[pid][plat]=v}
 function carNav(pid,plat,dir){
@@ -1118,8 +1174,34 @@ function startDragT(e,k){if(e.touches.length!==1)return;e.preventDefault();const
 document.addEventListener('wheel',e=>{if(!editMode)return;const el=e.target.closest('.img-mover');if(!el)return;e.preventDefault();setZ(el.id.replace('im_',''),getP(el.id.replace('im_','')).s+(e.deltaY>0?-.05:.05))},{passive:false})
 
 /* ── ACTIONS ── */
-async function doApprove(){if(!sel)return;const e=await savePost(sel.id,{status:'approved'});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,'Post approved ✓',true);toast('Approved ✓');refreshAll();if(isMobile())closeMobDetail()}}
-async function doReject(){if(!sel)return;const e=await savePost(sel.id,{status:'rejected'});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,'Changes requested.',true);toast('Changes requested');refreshAll();if(isMobile())closeMobDetail()}}
+async function doApprove(){
+  if(!sel)return
+  if(me.role!=='manager'){toast('Only managers can approve posts.');return}
+  // Add this manager's vote
+  const approvals=Object.assign({},sel.approvals||{})
+  approvals[me.id]={name:me.name,at:new Date().toISOString()}
+  // Count all managers
+  const allManagers=await getAllManagers()
+  const allApproved=allManagers.length>0&&allManagers.every(uid=>approvals[uid])
+  const newStatus=allApproved?'approved':'pending'
+  const e=await savePost(sel.id,{approvals,status:newStatus})
+  if(e){alert('Error: '+e.message);return}
+  await logActivity(sel.id,allApproved?'All managers approved ✓ — Ready to post!':'Approved by '+me.name+' ✓',allApproved)
+  if(allApproved)toast('All managers approved — Ready to post! 🎉')
+  else toast('Your approval recorded ✓')
+  refreshAll()
+  if(isMobile())closeMobDetail()
+}
+
+async function getAllManagers(){
+  // Get all users from auth — we track managers from who has signed in
+  // We store manager IDs locally from the posts' approval records + current user
+  const managerIds=new Set()
+  posts.forEach(p=>{Object.keys(p.approvals||{}).forEach(id=>managerIds.add(id))})
+  if(me.role==='manager')managerIds.add(me.id)
+  return Array.from(managerIds)
+}
+async function doReject(){if(!sel)return;if(me.role!=='manager'){toast('Only managers can reject posts.');return}const e=await savePost(sel.id,{status:'rejected',approvals:{}});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,'Changes requested by '+me.name+'.',true);toast('Changes requested');refreshAll();if(isMobile())closeMobDetail()}}
 async function doArchive(){if(!sel)return;const ns=sel.status==='archived'?'pending':'archived';const e=await savePost(sel.id,{status:ns});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,ns==='archived'?'Archived.':'Unarchived.',true);toast(ns==='archived'?'Archived':'Unarchived');refreshAll()}}
 async function doDelete(){if(!sel||!confirm('Permanently delete this post?'))return;try{const{error}=await SB.from('posts').delete().eq('id',sel.id);if(error){alert('Error: '+error.message);return}posts=posts.filter(p=>p.id!==sel.id);sel=null;toast('Deleted');refreshAll()}catch(e){alert('Error: '+e.message)}}
 
