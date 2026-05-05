@@ -1024,7 +1024,7 @@ function carNav(pid,plat,dir){
 function playVid(uid){const v=document.getElementById(uid),ov=document.getElementById('ov_'+uid);if(!v)return;ov?.classList.add('gone');v.controls=true;v.play()}
 
 function renderMedia(media,pid,plat){
-  const p2=posts.find(x=>x.id===pid)||sel||{},ar=getAR(p2,plat),maxH=ar==='9/16'?'420px':'none'
+  const p2=pid==='modal-prev'?{aspect_ratios:Object.assign({},mAspectRatios)}:(posts.find(x=>x.id===pid)||sel||{}),ar=getAR(p2,plat),maxH=ar==='9/16'?'420px':'none'
   if(!media?.length)return`<div style="aspect-ratio:${ar};max-height:${maxH};background:#111;display:flex;align-items:center;justify-content:center"><span style="font-size:12px;color:var(--t3)">No media</span></div>`
   const idx=getCI(pid,plat),total=media.length,item=media[idx],uid=`v_${pid}_${plat}_${idx}`
   let slide
@@ -1053,7 +1053,8 @@ function renderMedia(media,pid,plat){
 function renderPrev(plat,p){
   const acc=p.account||'Rockit Events'
   const handle='rockitevent'
-  const arPicker=`<div class="ar-row">${(AR[plat]||[]).map(o=>`<button class="ar-chip${getAR(p,plat)===o.v?' on':''}" onclick="setAR('${p.id}','${plat}','${o.v}')">${o.l}</button>`).join('')}</div>`
+  const isModal=p.id==='modal-prev'
+  const arPicker=`<div class="ar-row">${(AR[plat]||[]).map(o=>`<button class="ar-chip${getAR(p,plat)===o.v?' on':''}" onclick="${isModal?`setMAR('${plat}','${o.v}')`:`setAR('${p.id}','${plat}','${o.v}')`}">${o.l}</button>`).join('')}</div>`
   const media=renderMedia(p.media||[],p.id,plat)
   let card=''
   if(plat==='instagram'){
