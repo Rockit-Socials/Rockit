@@ -833,6 +833,15 @@ function refreshAll(){
   refreshSB()
   refreshDesktopMain()
   if(isMobile())refreshMobList()
+  updateTabBadge()
+}
+
+function updateTabBadge(){
+  try{
+    const pending=posts.filter(p=>p.status==='pending').length
+    const needsMine=me&&me.role==='manager'?posts.filter(p=>p.status==='pending'&&!(p.approvals||{})[me.id]).length:0
+    document.title=needsMine>0?'('+needsMine+') Rockit Approvals':pending>0?'('+pending+') Rockit Approvals':'Rockit Approvals'
+  }catch(e){}
 }
 
 /* ── DESKTOP SIDEBAR ── */
@@ -1215,11 +1224,15 @@ async function doApprove(){
 }
 
 async function getAllManagers(){
-  // Get all users from auth — we track managers from who has signed in
-  // We store manager IDs locally from the posts' approval records + current user
+  try{
+    // Query all users via admin - fall back to local tracking if not available
+    const{data,error}=await SB.from('profiles').select('id').eq('role','manager')
+    if(!error&&data&&data.length)return data.map(r=>r.id)
+  }catch(e){}
+  // Fallback: use managers we know about from approval records + current user
   const managerIds=new Set()
   posts.forEach(p=>{Object.keys(p.approvals||{}).forEach(id=>managerIds.add(id))})
-  if(me.role==='manager')managerIds.add(me.id)
+  if(me&&me.role==='manager')managerIds.add(me.id)
   return Array.from(managerIds)
 }
 async function doReject(){if(!sel)return;if(me.role!=='manager'){toast('Only managers can reject posts.');return}const e=await savePost(sel.id,{status:'rejected',approvals:{}});if(e)alert('Error: '+e.message);else{await logActivity(sel.id,'Changes requested by '+me.name+'.',true);toast('Changes requested');refreshAll();if(isMobile())closeMobDetail()}}
