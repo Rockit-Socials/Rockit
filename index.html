@@ -169,6 +169,8 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .ar-chip{padding:3px 8px;font-size:10px;border-radius:5px;cursor:pointer;border:1px solid var(--sep);color:var(--t3);background:transparent;font-family:var(--font);transition:all .12s}
 .ar-chip.on{background:var(--pdim);color:var(--p2);border-color:var(--pbrd)}
 .pv-frame{border:1px solid rgba(255,255,255,.1);border-radius:11px;overflow:hidden}
+.set-row{display:flex;align-items:center;gap:10px;padding:10px;background:var(--c3);border-radius:10px}
+.set-role-sel{background:var(--c4);color:var(--t1);border:1px solid var(--sep);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer}
 .log-area{padding:10px 16px;border-top:1px solid var(--sep);background:var(--c1);flex-shrink:0}
 .tbtn-app.voted{background:rgba(52,199,89,.12)!important;color:var(--g)!important;border:1px solid rgba(52,199,89,.3)!important}
 .apv-section{padding:12px 16px;border-top:1px solid var(--sep)}
@@ -550,12 +552,22 @@ async function boot(){
 async function doLogin(u){
   const m=u.user_metadata||{}
   me={id:u.id,email:u.email,name:m.name||u.email.split('@')[0],role:m.role||'creator'}
-  await loadPosts()
+  try{await SB.from('profiles').upsert({id:me.id,name:me.name,role:me.role,email:me.email},{onConflict:'id'})}catch(e){}
+  await Promise.all([loadPosts(),loadProfiles()])
   startRT()
   renderApp()
 }
 
 function norm(p){return{...p,platforms:Array.isArray(p.platforms)?p.platforms:[],media:Array.isArray(p.media)?p.media:[],aspect_ratios:p.aspect_ratios||{},approvals:p.approvals||{},post_comments:(p.post_comments||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))}}
+
+var profilesCache=[]
+
+async function loadProfiles(){
+  try{
+    const{data,error}=await SB.from('profiles').select('*')
+    if(!error&&data)profilesCache=data
+  }catch(e){}
+}
 
 async function loadPosts(){
   const{data,error}=await SB.from('posts').select('*, post_comments(*)').order('created_at',{ascending:false})
@@ -660,7 +672,7 @@ function renderAuth(t){
     <div class="auth-head"><div class="auth-av"><img src="${LOGO}" onerror="this.style.display='none'" /></div><div><div class="auth-title">Rockit Approvals</div><div class="auth-sub">${aTab==='login'?'Sign in to continue':'Create your account'}</div></div></div>
     <div class="seg"><button class="seg-btn${aTab==='login'?' on':''}" onclick="renderAuth('login')">Sign in</button><button class="seg-btn${aTab==='signup'?' on':''}" onclick="renderAuth('signup')">Sign up</button></div>
     <div id="a-err"></div>
-    ${aTab==='signup'?`<div class="afield"><label>Your name</label><input class="afi" id="a-name" type="text" placeholder="Sarah Jones" autocomplete="name" /></div><div class="afield"><label>Role</label><div class="roles"><div class="role-opt${aRole==='creator'?' on':''}" onclick="aRole='creator';renderAuth()">Creator</div><div class="role-opt${aRole==='manager'?' on':''}" onclick="aRole='manager';renderAuth()">Manager</div></div></div>`:''}
+    ${aTab==='signup'?`<div class="afield"><label>Your name</label><input class="afi" id="a-name" type="text" placeholder="Sarah Jones" autocomplete="name" /></div><div class="afield"><label>Role</label><div class="roles"><div class="role-opt${aRole==='creator'?' on':''}" onclick="aRole='creator';renderAuth()">Creator</div><div class="role-opt${aRole==='reviewer'?' on':''}" onclick="aRole='reviewer';renderAuth()">Reviewer</div><div class="role-opt${aRole==='manager'?' on':''}" onclick="aRole='manager';renderAuth()">Manager</div></div></div>`:''}
     <div class="afield"><label>Email</label><input class="afi" id="a-email" type="email" placeholder="you@example.com" autocomplete="email" /></div>
     <div class="afield"><label>Password</label><input class="afi" id="a-pass" type="password" placeholder="••••••••" autocomplete="${aTab==='login'?'current-password':'new-password'}" /></div>
     <button class="auth-btn" id="a-btn" onclick="doAuth()">${aTab==='login'?'Sign in':'Create account'}</button>
@@ -732,7 +744,7 @@ function renderApp(){
     </div>
     <div class="sb-foot">
       <div class="user-av">${ini(me.name)}</div>
-      <div style="flex:1;min-width:0"><div class="user-name">${me.name}</div><div class="user-role"><span id="rt-pip" class="rt-pip"></span>${me.role==='manager'?'Manager':'Creator'}</div></div>
+      <div style="flex:1;min-width:0"><div class="user-name">${me.name}</div><div class="user-role"><span id="rt-pip" class="rt-pip"></span>${me.role==='manager'?'Manager':me.role==='reviewer'?'Reviewer':'Creator'}</div></div>
       <button class="signout" onclick="SB.auth.signOut()" title="Sign out"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
     </div>
   </div>
@@ -1009,10 +1021,23 @@ function refreshDetail(){
 
 /* ── DESKTOP MAIN ── */
 function buildApprovalsHtml(p){
-  const list=Object.values(p.approvals||{})
-  if(!list.length)return ''
-  var rows=list.map(function(v){return '<div class="apv-row"><div class="user-av" style="width:28px;height:28px;font-size:10px;flex-shrink:0">'+ini(v.name)+'</div><div class="apv-info"><div class="apv-name">'+v.name+'</div><div class="apv-time">'+fmtTime(v.at)+'</div></div><div class="apv-tick">✓</div></div>'}).join('')
-  return '<div class="apv-section"><div class="apv-title">Approvals ('+list.length+' vote'+(list.length!==1?'s':'')+')</div><div class="apv-list">'+rows+'</div></div>'
+  // Build from known managers in profiles cache
+  var approvals=p.approvals||{}
+  var voted=Object.entries(approvals).map(function(e){return{id:e[0],name:e[1].name,at:e[1].at,done:true}})
+  // Add waiting managers from profilesCache
+  profilesCache.filter(function(pr){return pr.role==='manager'&&!approvals[pr.id]}).forEach(function(pr){
+    voted.push({id:pr.id,name:pr.name,at:null,done:false})
+  })
+  if(!voted.length)return ''
+  var rows=voted.map(function(v){
+    if(v.done){
+      return '<div class="apv-row"><div class="user-av" style="width:28px;height:28px;font-size:10px;flex-shrink:0">'+ini(v.name)+'</div><div class="apv-info"><div class="apv-name">'+v.name+'</div><div class="apv-time">'+fmtTime(v.at)+'</div></div><div class="apv-tick" style="color:var(--g)">✓</div></div>'
+    } else {
+      return '<div class="apv-row"><div class="user-av" style="width:28px;height:28px;font-size:10px;flex-shrink:0;opacity:.5">'+ini(v.name)+'</div><div class="apv-info"><div class="apv-name" style="opacity:.6">'+v.name+'</div><div class="apv-time" style="color:var(--a)">Waiting for approval…</div></div><div style="color:var(--a);font-size:16px">⏳</div></div>'
+    }
+  }).join('')
+  var doneCount=voted.filter(function(v){return v.done}).length
+  return '<div class="apv-section"><div class="apv-title">Approvals ('+doneCount+' / '+voted.length+')</div><div class="apv-list">'+rows+'</div></div>'
 }
 
 function buildReadyBanner(p){
@@ -1405,6 +1430,56 @@ function playVid(id){
   else{v.pause();if(ov)ov.style.opacity='1'}
   v.onended=function(){if(ov)ov.style.opacity='1'}
 }
+function openSettings(){
+  if(!me||me.email!=='greg.beswick@rockiteventproduction.co.uk')return
+  loadProfiles().then(function(){
+    var rows=profilesCache.map(function(u){
+      return '<div class="set-row" id="set-row-'+u.id+'">'+
+        '<div class="user-av" style="width:30px;height:30px;font-size:11px;flex-shrink:0">'+ini(u.name)+'</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">'+u.name+'</div><div style="font-size:11px;color:var(--t3)">'+u.email+'</div></div>'+
+        '<select class="set-role-sel" data-uid="'+u.id+'" onchange="updateUserRole(this)">'+
+          '<option value="creator"'+(u.role==='creator'?' selected':'')+'>Creator</option>'+
+          '<option value="reviewer"'+(u.role==='reviewer'?' selected':'')+'>Reviewer</option>'+
+          '<option value="manager"'+(u.role==='manager'?' selected':'')+'>Manager</option>'+
+        '</select>'+
+      '</div>'
+    }).join('')
+    var el=document.createElement('div')
+    el.id='settings-modal'
+    el.style.cssText='position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:20px'
+    el.innerHTML='<div style="background:var(--c2);border-radius:16px;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;border:1px solid var(--sep)">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'+
+        '<div style="font-size:16px;font-weight:600">Team & Roles</div>'+
+        '<button onclick="closeSettings()" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px">&#x00D7;</button>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:8px">'+rows+'</div>'+
+    '</div>'
+    document.body.appendChild(el)
+  })
+}
+
+function closeSettings(){var el=document.getElementById('settings-modal');if(el)el.remove()}
+
+async function updateUserRole(sel){
+  var uid=sel.dataset.uid
+  var role=sel.value
+  try{
+    await SB.from('profiles').update({role:role}).eq('id',uid)
+    await loadProfiles()
+    toast('Role updated')
+    // If demoting a manager, clear their votes
+    if(role!=='manager'){
+      posts.forEach(async function(p){
+        if(p.approvals&&p.approvals[uid]){
+          var a=Object.assign({},p.approvals)
+          delete a[uid]
+          await SB.from('posts').update({approvals:a}).eq('id',p.id)
+        }
+      })
+    }
+  }catch(e){toast('Error: '+e.message)}
+}
+
 function closeModal(){editMode=false;document.getElementById('m-bg')?.remove()}
 
 function togglePP(el){
