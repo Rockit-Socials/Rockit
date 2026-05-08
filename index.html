@@ -174,6 +174,9 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .log-area{padding:10px 16px;border-top:1px solid var(--sep);background:var(--c1);flex-shrink:0}
 .tbtn-app.voted{background:rgba(52,199,89,.12)!important;color:var(--g)!important;border:1px solid rgba(52,199,89,.3)!important}
 .apv-section{padding:12px 16px;border-top:1px solid var(--sep)}
+.remind-btn{background:var(--c4);border:1px solid var(--sep);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:13px}
+.remind-btn:hover{background:var(--c5)}
+.remind-wa{background:rgba(37,211,102,.12);border-color:rgba(37,211,102,.3)}
 .apv-title{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 .apv-list{display:flex;flex-direction:column;gap:6px}
 .apv-row{display:flex;align-items:center;gap:10px}
@@ -188,6 +191,9 @@ input,textarea,select,button{font-family:var(--font);-webkit-appearance:none;out
 .ready-sub{font-size:12px;color:var(--t2);margin-top:2px}
 .ready-copy{background:var(--g);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap}
 .apv-section{padding:12px 16px;border-top:1px solid var(--sep)}
+.remind-btn{background:var(--c4);border:1px solid var(--sep);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:13px}
+.remind-btn:hover{background:var(--c5)}
+.remind-wa{background:rgba(37,211,102,.12);border-color:rgba(37,211,102,.3)}
 .apv-title{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 .apv-list{display:flex;flex-direction:column;gap:6px}
 .apv-row{display:flex;align-items:center;gap:10px}
@@ -1033,7 +1039,15 @@ function buildApprovalsHtml(p){
     if(v.done){
       return '<div class="apv-row"><div class="user-av" style="width:28px;height:28px;font-size:10px;flex-shrink:0">'+ini(v.name)+'</div><div class="apv-info"><div class="apv-name">'+v.name+'</div><div class="apv-time">'+fmtTime(v.at)+'</div></div><div class="apv-tick" style="color:var(--g)">✓</div></div>'
     } else {
-      return '<div class="apv-row"><div class="user-av" style="width:28px;height:28px;font-size:10px;flex-shrink:0;opacity:.5">'+ini(v.name)+'</div><div class="apv-info"><div class="apv-name" style="opacity:.6">'+v.name+'</div><div class="apv-time" style="color:var(--a)">Waiting for approval…</div></div><div style="color:var(--a);font-size:16px">⏳</div></div>'
+      var postTitle=sel?sel.caption.slice(0,60)+'...':''
+      var appUrl='https://rockit-socials.github.io/Rockit/'
+      var waMsg=encodeURIComponent('Hi '+v.name+'! There\'s a post waiting for your approval on Rockit Approvals.\n\n"'+postTitle+'"\n\nCan you take a look? '+appUrl)
+      var emailSubj=encodeURIComponent('Approval needed on Rockit Approvals')
+      var emailBody=encodeURIComponent('Hi '+v.name+',\n\nA post needs your approval on Rockit Approvals.\n\n"'+postTitle+'"\n\nReview it here: '+appUrl+'\n\nThanks!')
+      var email=v.email||''
+      var emailBtn=email?'<a href="mailto:'+email+'?subject='+emailSubj+'&body='+emailBody+'" style="text-decoration:none"><button class="remind-btn" title="Email reminder">&#x2709;</button></a>':''
+      var waBtn='<a href="https://wa.me/?text='+waMsg+'" target="_blank"><button class="remind-btn remind-wa" title="WhatsApp">&#x1F4AC;</button></a>'
+      return '<div class="apv-row"><div class="user-av" style="width:28px;height:28px;font-size:10px;flex-shrink:0;opacity:.5">'+ini(v.name)+'</div><div class="apv-info"><div class="apv-name" style="opacity:.6">'+v.name+'</div><div class="apv-time" style="color:var(--a)">Waiting...</div></div><div style="display:flex;gap:4px">'+emailBtn+waBtn+'</div></div>'
     }
   }).join('')
   var doneCount=voted.filter(function(v){return v.done}).length
